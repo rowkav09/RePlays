@@ -96,6 +96,10 @@
   <ItemGroup>
     <Content Include="Resources\logo.ico" />
   </ItemGroup>
+
+  <ItemGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+    <Content Include="Resources\logo.svg" Link="Resources\logo.svg" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
   
   <ItemGroup>
     <PackageReference Include="JsonPath.Net" Version="1.0.0" />
