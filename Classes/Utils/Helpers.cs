@@ -249,7 +249,14 @@ namespace RePlays.Utils {
                 }
             }
 #else
-            // TODO: Get audio devices on Linux
+            foreach (var (name, label) in ListPulseDevices("sinks")) {
+                outputCache.Add(new(name + ".monitor", label, false));
+            }
+            foreach (var (name, label) in ListPulseDevices("sources")) {
+                // monitor sources are the output devices above, not microphones
+                if (name.EndsWith(".monitor")) continue;
+                inputCache.Add(new(name, label, true, false));
+            }
 #endif
             if (SettingsService.Settings.captureSettings.inputDevices.Count == 0) {
                 SettingsService.Settings.captureSettings.inputDevices.Add(inputCache[0]);
@@ -259,6 +266,41 @@ namespace RePlays.Utils {
             }
             SettingsService.SaveSettings();
         }
+
+#if !WINDOWS
+        /// <summary>
+        /// Lists PulseAudio or PipeWire devices with `pactl list short`. Returns an empty list if pactl is missing or fails,
+        /// so the default device entry is still available.
+        /// </summary>
+        private static List<(string name, string label)> ListPulseDevices(string kind) {
+            var devices = new List<(string name, string label)>();
+            try {
+                var psi = new ProcessStartInfo("pactl", $"list short {kind}") {
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                using var proc = Process.Start(psi);
+                if (proc == null) return devices;
+                string output = proc.StandardOutput.ReadToEnd();
+                if (!proc.WaitForExit(3000)) {
+                    proc.Kill();
+                    return devices;
+                }
+                foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries)) {
+                    // index <tab> name <tab> driver <tab> sample spec <tab> state
+                    var parts = line.Split('\t');
+                    if (parts.Length < 2 || string.IsNullOrWhiteSpace(parts[1])) continue;
+                    devices.Add((parts[1].Trim(), parts[1].Trim()));
+                }
+            }
+            catch (Exception e) {
+                Logger.WriteLine($"Could not list {kind} with pactl: {e.Message}");
+            }
+            return devices;
+        }
+#endif
 
         public static string GetUserSettings() {
             SettingsService.LoadSettings();
