@@ -52,7 +52,13 @@ namespace RePlays.Services {
 
             ActiveRecorder = new LibObsRecorder();
             Logger.WriteLine("Creating a new ActiveRecorder");
-            await Task.Run(() => ActiveRecorder.Start());
+            try {
+                await Task.Run(() => ActiveRecorder.Start());
+            }
+            catch (Exception e) {
+                Logger.WriteLine($"Recorder failed to start, recording is unavailable: {e.Message}");
+                return;
+            }
             //Update user settings
             WebMessage.SendMessage(GetUserSettings());
             await Task.Run(() => DetectionService.CheckTopLevelWindows());
