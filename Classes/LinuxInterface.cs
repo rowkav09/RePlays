@@ -128,6 +128,10 @@ namespace RePlays {
                 GTK.gtk_window_set_keep_above(window, false);
                 return;
             }
+            if (!WebKitGtk.IsAvailable()) {
+                Logger.WriteLine("Cannot open the interface: WebKitGTK not found. Install webkit2gtk 4.1 (libwebkit2gtk-4.1.so.0) or 4.0 (libwebkit2gtk-4.0.so.37). The app is still serving on " + GetRePlaysURI());
+                return;
+            }
             window = GTK.gtk_window_new(GTK.GtkWindowType.GTK_WINDOW_TOPLEVEL);
             GTK.gtk_window_set_default_size(window, 1080, 600);
             GTK.gtk_window_set_icon_from_file(window, icon, IntPtr.Zero);
@@ -301,7 +305,30 @@ namespace RePlays {
     }
 
     class WebKitGtk {
-        const string WebKitGtkLibrary = "libwebkit2gtk-4.0.so.37";
+        // logical name, resolved at load time to whichever WebKitGTK is installed.
+        // 4.1 is the same API linked against libsoup 3, and is the only one
+        // newer distros ship by default (Fedora, Debian 13, Ubuntu 24.04)
+        const string WebKitGtkLibrary = "webkit2gtk";
+        static readonly string[] candidates = { "libwebkit2gtk-4.1.so.0", "libwebkit2gtk-4.0.so.37" };
+
+        const string NotFoundMessage = "WebKitGTK not found. Install webkit2gtk 4.1 (libwebkit2gtk-4.1.so.0) or 4.0 (libwebkit2gtk-4.0.so.37).";
+
+        public static bool IsAvailable() {
+            foreach (var candidate in candidates) {
+                if (NativeLibrary.TryLoad(candidate, out _)) return true;
+            }
+            return false;
+        }
+
+        static WebKitGtk() {
+            NativeLibrary.SetDllImportResolver(typeof(WebKitGtk).Assembly, (name, assembly, searchPath) => {
+                if (name != WebKitGtkLibrary) return IntPtr.Zero;
+                foreach (var candidate in candidates) {
+                    if (NativeLibrary.TryLoad(candidate, assembly, searchPath, out var handle)) return handle;
+                }
+                throw new DllNotFoundException(NotFoundMessage);
+            });
+        }
 
         [DllImport(WebKitGtkLibrary, CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr webkit_web_view_new();
