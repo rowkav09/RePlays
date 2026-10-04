@@ -181,7 +181,7 @@ namespace RePlays {
     }
 
     class Ayatana {
-        const string LibAyatanaAppIndicator3 = "libayatana-appindicator3"; // Adjust the library name based on your system
+        const string LibAyatanaAppIndicator3 = "libayatana-appindicator3.so.1"; // Adjust the library name based on your system
 
         [DllImport(LibAyatanaAppIndicator3, CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr app_indicator_new(string id, string icon, int category);
@@ -198,7 +198,7 @@ namespace RePlays {
     }
 
     class GTK {
-        const string GtkLibrary = "libgtk-3";
+        const string GtkLibrary = "libgtk-3.so.0";
 
         [DllImport(GtkLibrary, CallingConvention = CallingConvention.Cdecl)]
         public static extern void gtk_init(ref int argc, ref IntPtr argv);
@@ -306,7 +306,7 @@ namespace RePlays {
     }
 
     class WebKitGtk {
-        const string WebKitGtkLibrary = "libwebkit2gtk-4.0.so";
+        const string WebKitGtkLibrary = "libwebkit2gtk-4.0.so.37";
 
         [DllImport(WebKitGtkLibrary, CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr webkit_web_view_new();
