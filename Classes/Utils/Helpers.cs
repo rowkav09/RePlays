@@ -871,14 +871,14 @@ namespace RePlays.Utils {
                 try {
                     ProcessStartInfo psi = new ProcessStartInfo {
                         FileName = "lspci",
-                        Arguments = "-nn | grep VGA",
+                        Arguments = "-nn",
                         RedirectStandardOutput = true,
                         UseShellExecute = false,
                         CreateNoWindow = true
                     };
                     using (Process proc = new Process { StartInfo = psi }) {
                         proc.Start();
-                        string output = proc.StandardOutput.ReadToEnd();
+                        string output = string.Join('\n', proc.StandardOutput.ReadToEnd().Split('\n').Where(line => line.Contains("VGA")));
                         proc.WaitForExit();
                         if (output.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)) {
                             return "NVIDIA";
