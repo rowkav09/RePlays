@@ -139,7 +139,7 @@ namespace RePlays {
             }
             window = GTK.gtk_window_new(GTK.GtkWindowType.GTK_WINDOW_TOPLEVEL);
             GTK.gtk_window_set_default_size(window, 1080, 600);
-            GTK.gtk_window_set_icon_from_file(window, icon);
+            GTK.gtk_window_set_icon_from_file(window, icon, IntPtr.Zero);
 
             // Create a new WebKitGTK WebView
             IntPtr webView = WebKitGtk.webkit_web_view_new();
@@ -222,7 +222,7 @@ namespace RePlays {
         public static extern void gtk_window_set_default_size(IntPtr window, int width, int height);
 
         [DllImport(GtkLibrary, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void gtk_window_set_icon_from_file(IntPtr icon, string filename);
+        public static extern void gtk_window_set_icon_from_file(IntPtr window, string filename, IntPtr error);
 
         [DllImport(GtkLibrary, CallingConvention = CallingConvention.Cdecl)]
         public static extern void gtk_container_add(IntPtr container, IntPtr widget);
