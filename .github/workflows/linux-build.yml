@@ -72,12 +72,20 @@ jobs:
           if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then alive=1; fi
           rss_kb=0
           if [ "$alive" = 1 ]; then rss_kb=$(awk '/VmRSS/ {print $2}' /proc/$pid/status); fi
+          cpu_pct=n/a
+          if [ "$alive" = 1 ]; then
+            t0=$(awk '{print $14 + $15}' /proc/$pid/stat)
+            sleep 10
+            t1=$(awk '{print $14 + $15}' /proc/$pid/stat 2>/dev/null || echo "$t0")
+            cpu_pct=$(awk "BEGIN {printf \"%.1f\", ($t1 - $t0) / 10}")
+          fi
           {
             echo "### Startup smoke test"
             echo "- served on :3001: $up"
             echo "- still running after 5s: $alive"
             echo "- time to first response: $(awk "BEGIN {printf \"%.1f\", $end - $start}") s"
             echo "- RSS: $((rss_kb / 1024)) MB"
+            echo "- idle CPU over 10s: $cpu_pct % of one core"
           } | tee -a "$GITHUB_STEP_SUMMARY"
           echo "---- app log ----"
           cat "$RUNNER_TEMP/app.log"
