@@ -695,7 +695,7 @@ namespace RePlays.Services {
                             }
                         }
                     }
-                    Thread.Sleep(1);
+                    Thread.Sleep(100);
                 }
                 XCloseDisplay(X11Display);
             });
