@@ -86,15 +86,6 @@ namespace RePlays {
             Ayatana.app_indicator_set_status(indicator, 1);
             Ayatana.app_indicator_set_icon(indicator, icon);
             Ayatana.app_indicator_set_menu(indicator, menu);
-            GTK.g_signal_connect_data(indicator, "activate",
-                new GTK.ActivateCallback((widget, userData) => {
-                    string label = Marshal.PtrToStringAnsi(userData);
-                    Logger.WriteLine($"Item clicked: {label}");
-                }),
-                Marshal.StringToHGlobalAnsi("Tray"),
-                IntPtr.Zero,
-                GTK.GConnectFlags.G_CONNECT_AFTER
-            );
 #else
             // Create status icon tray
             IntPtr statusIcon = GTK.gtk_status_icon_new();
