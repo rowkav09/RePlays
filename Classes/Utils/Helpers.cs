@@ -883,7 +883,7 @@ namespace RePlays.Utils {
                         if (output.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)) {
                             return "NVIDIA";
                         }
-                        else if (output.Contains("AMD", StringComparison.OrdinalIgnoreCase) || output.Contains("ATI", StringComparison.OrdinalIgnoreCase)) {
+                        else if (output.Contains("AMD", StringComparison.OrdinalIgnoreCase) || output.Contains("ATI Technologies", StringComparison.OrdinalIgnoreCase)) {
                             return "AMD";
                         }
                         else if (output.Contains("Intel", StringComparison.OrdinalIgnoreCase)) {
