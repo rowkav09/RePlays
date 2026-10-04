@@ -432,7 +432,7 @@ namespace RePlays.Services {
             public int pid;
             public Rect size;
         }
-        const string Xlib = "libX11";
+        const string Xlib = "libX11.so.6";
 
         [DllImport(Xlib, EntryPoint = "XOpenDisplay")]
         static extern IntPtr XOpenDisplay(IntPtr display);

@@ -100,7 +100,7 @@ namespace RePlays.Recorders {
 
         static signal_callback_t outputStopCb;
 
-        [DllImport("libX11", EntryPoint = "XOpenDisplay")]
+        [DllImport("libX11.so.6", EntryPoint = "XOpenDisplay")]
         public static extern IntPtr XOpenDisplay(IntPtr display);
 
         public override void Start() {
