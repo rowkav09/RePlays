@@ -1,0 +1,29 @@
+name: Linux Build
+
+on:
+  push:
+    branches: [main, linux-build]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.configuration }})
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # EnforceCodeStyleInBuild is off because .editorconfig asks for CRLF
+      # and a Linux checkout is LF
+      - name: Build
+        run: dotnet build RePlays.csproj -c ${{ matrix.configuration }} -r linux-x64 -p:EnforceCodeStyleInBuild=false -p:RunAnalyzers=false
