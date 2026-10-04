@@ -880,6 +880,8 @@ namespace RePlays.Services {
             size = 0;
             return false;
         }
+
+        public static bool IsHdrEnabled(nint windowHandle) => false;
 #else
         public static string GetMonitorId(string deviceName) {
             Logger.WriteLine($"Attempting to retrieve deviceId from {deviceName}");
