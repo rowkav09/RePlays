@@ -83,3 +83,53 @@ jobs:
           cat "$RUNNER_TEMP/app.log"
           [ -n "$pid" ] && kill "$pid" || true
           [ "$up" = 1 ] && [ "$alive" = 1 ]
+
+  package:
+    name: Package (tar.gz)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # the csproj Publish target is Windows only (Velopack, win-x64 libobs), so
+      # the package is put together from the build output instead
+      - name: Build
+        run: dotnet build RePlays.csproj -c Release -r linux-x64 -p:EnforceCodeStyleInBuild=false -p:RunAnalyzers=false
+
+      - name: Build frontend
+        working-directory: ClientApp
+        run: |
+          npm ci
+          npm run build
+
+      - name: Assemble
+        run: |
+          out=RePlays-linux-x64
+          mkdir -p "$out/ClientApp"
+          cp -r bin/Release/net8.0/linux-x64/. "$out/"
+          rm -rf "$out/cfg"
+          cp -r ClientApp/build "$out/ClientApp/build"
+          cp -r Resources/. "$out/Resources/"
+          cp ClientApp/node_modules/ffmpeg-ffprobe-static/ffmpeg ClientApp/node_modules/ffmpeg-ffprobe-static/ffprobe "$out/"
+          cp LICENSE "$out/"
+          cat > "$out/README-linux.txt" <<'TXT'
+          Runtime packages (Ubuntu 22.04 names): libgtk-3-0 libwebkit2gtk-4.0-37 libayatana-appindicator3-1 libx11-6
+          Run ./RePlays from this folder.
+          libobs.so is not included, so recording is unavailable until it is placed next to RePlays.
+          TXT
+          tar -czf RePlays-linux-x64.tar.gz "$out"
+          ls -lh RePlays-linux-x64.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RePlays-linux-x64
+          path: RePlays-linux-x64.tar.gz
