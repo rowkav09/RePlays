@@ -83,6 +83,7 @@ namespace RePlays.Utils {
 
         public static string GetPlaysFolder() {
             var videoSaveDir = SettingsService.Settings.storageSettings.videoSaveDir.Replace('\\', '/');
+#if WINDOWS
             if (!DriveInfo.GetDrives().Where(drive => drive.Name.StartsWith(videoSaveDir[..1])).Any()) {
                 SettingsService.Settings.storageSettings.videoSaveDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "Plays");
                 SettingsService.SaveSettings();
@@ -96,6 +97,7 @@ namespace RePlays.Utils {
 #endif
                 return SettingsService.Settings.storageSettings.videoSaveDir.Replace('\\', '/');
             }
+#endif
 
             if (!Directory.Exists(videoSaveDir))
                 Directory.CreateDirectory(videoSaveDir);
