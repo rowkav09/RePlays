@@ -29,8 +29,12 @@ jobs:
         run: dotnet build RePlays.csproj -c ${{ matrix.configuration }} -r linux-x64 -p:EnforceCodeStyleInBuild=false -p:RunAnalyzers=false
 
   smoke:
-    name: Startup smoke test
+    name: Startup smoke test (${{ matrix.webkit }})
     runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        webkit: [libwebkit2gtk-4.0-37, libwebkit2gtk-4.1-0]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,7 +47,7 @@ jobs:
       - name: Install runtime libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends xvfb libgtk-3-0 libwebkit2gtk-4.0-37 libayatana-appindicator3-1
+          sudo apt-get install -y --no-install-recommends xvfb libgtk-3-0 ${{ matrix.webkit }} libayatana-appindicator3-1
 
       - name: Build
         run: dotnet build RePlays.csproj -c Release -r linux-x64 -p:EnforceCodeStyleInBuild=false -p:RunAnalyzers=false
@@ -80,7 +84,7 @@ jobs:
             cpu_pct=$(awk "BEGIN {printf \"%.1f\", ($t1 - $t0) / 10}")
           fi
           {
-            echo "### Startup smoke test"
+            echo "### Startup smoke test (${{ matrix.webkit }})"
             echo "- served on :3001: $up"
             echo "- still running after 5s: $alive"
             echo "- time to first response: $(awk "BEGIN {printf \"%.1f\", $end - $start}") s"
@@ -130,7 +134,8 @@ jobs:
           cp ClientApp/node_modules/ffmpeg-ffprobe-static/ffmpeg ClientApp/node_modules/ffmpeg-ffprobe-static/ffprobe "$out/"
           cp LICENSE "$out/"
           cat > "$out/README-linux.txt" <<'TXT'
-          Runtime packages (Ubuntu 22.04 names): libgtk-3-0 libwebkit2gtk-4.0-37 libayatana-appindicator3-1 libx11-6
+          Runtime packages (Ubuntu 22.04 names): libgtk-3-0 libwebkit2gtk-4.1-0 (or libwebkit2gtk-4.0-37) libayatana-appindicator3-1 libx11-6
+          On Fedora: gtk3 webkit2gtk4.1 libayatana-appindicator-gtk3 (webkit2gtk4.0 also works)
           Run ./RePlays from this folder.
           libobs.so is not included, so recording is unavailable until it is placed next to RePlays.
           TXT
