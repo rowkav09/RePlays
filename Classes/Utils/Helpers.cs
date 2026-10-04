@@ -173,7 +173,11 @@ namespace RePlays.Utils {
 
         public static string GetFFmpegFolder() {
 #if !WINDOWS
+#if DEBUG
             string ffmpegFolder = Path.Join(GetSolutionPath(), @"ClientApp/node_modules/ffmpeg-ffprobe-static/");
+#else
+            string ffmpegFolder = GetStartupPath();
+#endif
             if (File.Exists(Path.Join(ffmpegFolder, "ffmpeg")) && File.Exists(Path.Join(ffmpegFolder, "ffprobe"))) {
 #else
             string ffmpegFolder = GetStartupPath();
