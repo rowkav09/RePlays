@@ -152,6 +152,7 @@ namespace RePlays {
             WebKitGtk.webkit_settings_set_allow_file_access_from_file_urls(settings, true);
             WebKitGtk.webkit_settings_set_allow_universal_access_from_file_urls(settings, true);
             WebKitGtk.webkit_web_view_set_settings(webView, settings);
+            GTK.g_object_unref(settings);
 
             // Load a URL into the WebView
             WebKitGtk.webkit_web_view_load_uri(webView, GetRePlaysURI());
@@ -198,6 +199,9 @@ namespace RePlays {
     }
 
     class GTK {
+        [DllImport("libgobject-2.0.so.0", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void g_object_unref(IntPtr obj);
+
         const string GtkLibrary = "libgtk-3.so.0";
 
         [DllImport(GtkLibrary, CallingConvention = CallingConvention.Cdecl)]
