@@ -681,7 +681,7 @@ namespace RePlays.Services {
                                     hasCurr = x11Windows.TryGetValue(window, out X11Window newCurr);
                                     curr = newCurr;
 
-                                    if (hasPrev && hasCurr && prev.size.GetSizeStr() != curr.size.GetSizeStr()) {
+                                    if (hasPrev && hasCurr && prev.size != curr.size) {
                                         DetectionService.WindowCreation(window, windowPid);
                                     }
                                 }
