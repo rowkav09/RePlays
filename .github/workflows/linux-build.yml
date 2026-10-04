@@ -27,3 +27,59 @@ jobs:
       # and a Linux checkout is LF
       - name: Build
         run: dotnet build RePlays.csproj -c ${{ matrix.configuration }} -r linux-x64 -p:EnforceCodeStyleInBuild=false -p:RunAnalyzers=false
+
+  smoke:
+    name: Startup smoke test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb libgtk-3-0 libwebkit2gtk-4.0-37 libayatana-appindicator3-1
+
+      - name: Build
+        run: dotnet build RePlays.csproj -c Release -r linux-x64 -p:EnforceCodeStyleInBuild=false -p:RunAnalyzers=false
+
+      # starts the app on a virtual display with a clean config and checks
+      # that it stays up and serves on :3001. startup time and memory are
+      # only reported, not checked, until there are enough runs to know the noise
+      - name: Start app and check it serves
+        run: |
+          cd bin/Release/net8.0/linux-x64
+          rm -rf ../cfg
+          export HOME="$RUNNER_TEMP/home" XDG_VIDEOS_DIR="$RUNNER_TEMP/home/Videos"
+          mkdir -p "$XDG_VIDEOS_DIR"
+          start=$(date +%s.%N)
+          xvfb-run -a ./RePlays > "$RUNNER_TEMP/app.log" 2>&1 &
+          up=0
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/ || true)
+            if [ "$code" != "000" ] && [ -n "$code" ]; then up=1; break; fi
+            sleep 0.5
+          done
+          end=$(date +%s.%N)
+          pid=$(pgrep -x RePlays | head -n1 || true)
+          if [ "$up" = 1 ]; then sleep 5; fi
+          alive=0
+          if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then alive=1; fi
+          rss_kb=0
+          if [ "$alive" = 1 ]; then rss_kb=$(awk '/VmRSS/ {print $2}' /proc/$pid/status); fi
+          {
+            echo "### Startup smoke test"
+            echo "- served on :3001: $up"
+            echo "- still running after 5s: $alive"
+            echo "- time to first response: $(awk "BEGIN {printf \"%.1f\", $end - $start}") s"
+            echo "- RSS: $((rss_kb / 1024)) MB"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "---- app log ----"
+          cat "$RUNNER_TEMP/app.log"
+          [ -n "$pid" ] && kill "$pid" || true
+          [ "$up" = 1 ] && [ "$alive" = 1 ]
