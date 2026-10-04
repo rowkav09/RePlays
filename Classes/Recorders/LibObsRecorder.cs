@@ -478,6 +478,10 @@ namespace RePlays.Recorders {
         }
 
         private void CreateAudioApplicationSource(AudioApplication application) {
+#if !WINDOWS
+            Logger.WriteLine($"Per-application audio capture is not supported on this platform, skipping '{application.name}'");
+            return;
+#else
             string id = "(application) " + application.name;
             IntPtr settings = obs_data_create();
             obs_data_set_string(settings, "window", application.windowClassNameId);
@@ -491,6 +495,7 @@ namespace RePlays.Recorders {
             }
             else
                 Logger.WriteLine($"[Warning] Exceeding 6 audio sources ({audioSources.Count}), cannot add another track (max = 6)");
+#endif
         }
 
         private void CreateAudioDeviceSource(AudioDevice device) {
