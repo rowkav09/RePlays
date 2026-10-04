@@ -10,9 +10,7 @@ using static RePlays.Utils.Functions;
 namespace RePlays {
 #if !WINDOWS
     public static class LinuxInterface {
-#if DEBUG
-        static readonly string icon = Path.Join(GetSolutionPath(), "/Resources/logo.svg");
-#endif
+        static readonly string icon = Path.Join(GetResourcesFolder(), "logo.svg");
         static IntPtr window;
         public static void Create() {
             int argc = 0;
