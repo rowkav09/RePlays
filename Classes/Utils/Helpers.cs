@@ -374,12 +374,19 @@ namespace RePlays.Utils {
                 if (!(fileWithoutExt.EndsWith("-ses") || fileWithoutExt.EndsWith("-man") || fileWithoutExt.EndsWith("-clp")) || !file.Exists) continue;
                 if (RecordingService.IsRecording && RecordingService.GetCurrentSession().VideoSavePath.Equals(file.FullName)) continue;
 
+                // work out the game first: reading (or creating, which can run ffprobe) the metadata
+                // of every video in every other game just to throw it away made opening one game slow
+                string gameFolder = Path.GetFileName(Path.GetDirectoryName(file.FullName));
+                if (!videoList.games.Contains(gameFolder)) videoList.games.Add(gameFolder);
+
+                if (!game.Equals(gameFolder) && !game.Equals("All Games")) continue;
+
                 Video video = new() {
                     size = file.Length,
                     metadata = GetOrCreateMetadata(file.FullName),
                     date = file.CreationTime,
                     fileName = Path.GetFileName(file.FullName),
-                    game = Path.GetFileName(Path.GetDirectoryName(file.FullName)),
+                    game = gameFolder,
                 };
 
 #if DEBUG && WINDOWS
@@ -390,10 +397,6 @@ namespace RePlays.Utils {
                 else
                     video.folder = "http://localhost:3001/";
 #endif
-
-                if (!videoList.games.Contains(video.game)) videoList.games.Add(video.game);
-
-                if (!game.Equals(Path.GetFileName(Path.GetDirectoryName(file.FullName))) && !game.Equals("All Games")) continue;
 
                 var thumb = GetOrCreateThumbnail(file.FullName, video.metadata.duration);
                 if (!File.Exists(thumb)) continue;
