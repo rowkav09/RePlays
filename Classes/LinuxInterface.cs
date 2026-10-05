@@ -12,6 +12,14 @@ namespace RePlays {
     public static class LinuxInterface {
         static readonly string icon = Path.Join(GetResourcesFolder(), "logo.svg");
         static IntPtr window;
+        static readonly System.Collections.Generic.List<Delegate> keepAlive = new();
+        // GTK keeps only a raw function pointer for each callback. If the managed delegate is
+        // collected the next click or close calls freed memory, so hold on to every one we hand over.
+        static T KeepAlive<T>(T callback) where T : Delegate {
+            lock (keepAlive) keepAlive.Add(callback);
+            return callback;
+        }
+
         public static void Create() {
             int argc = 0;
             IntPtr argv = IntPtr.Zero;
@@ -26,9 +34,9 @@ namespace RePlays {
             // Create menu item to open interface
             IntPtr openMenuItem = GTK.gtk_menu_item_new_with_label("Open");
             GTK.g_signal_connect_data(openMenuItem, "activate",
-                new GTK.ActivateCallback((_, _) => {
+                KeepAlive(new GTK.ActivateCallback((_, _) => {
                     InitializeWebView();
-                }),
+                })),
                 Marshal.StringToHGlobalAnsi("Open"),
                 IntPtr.Zero,
                 GTK.GConnectFlags.G_CONNECT_AFTER
@@ -39,10 +47,10 @@ namespace RePlays {
             // Create menu item to check for updates
             IntPtr updateMenuItem = GTK.gtk_menu_item_new_with_label("Check for updates");
             GTK.g_signal_connect_data(updateMenuItem, "activate",
-                new GTK.ActivateCallback((widget, userData) => {
+                KeepAlive(new GTK.ActivateCallback((widget, userData) => {
                     string label = Marshal.PtrToStringAnsi(userData);
                     Logger.WriteLine($"Item clicked: {label}");
-                }),
+                })),
                 Marshal.StringToHGlobalAnsi("Check for updates"),
                 IntPtr.Zero,
                 GTK.GConnectFlags.G_CONNECT_AFTER
@@ -68,9 +76,9 @@ namespace RePlays {
             // Create menu item to quit application
             IntPtr quitMenuItem = GTK.gtk_menu_item_new_with_label("Quit");
             GTK.g_signal_connect_data(quitMenuItem, "activate",
-                new GTK.ActivateCallback((widget, userData) => {
+                KeepAlive(new GTK.ActivateCallback((widget, userData) => {
                     Environment.Exit(1);
-                }),
+                })),
                 Marshal.StringToHGlobalAnsi("Quit"),
                 IntPtr.Zero,
                 GTK.GConnectFlags.G_CONNECT_AFTER
@@ -99,9 +107,9 @@ namespace RePlays {
                 push_in = _push_in;
             });
             GTK.g_signal_connect_data(statusIcon, "activate",
-                new GTK.ActivateCallback((widget, userData) => {
+                KeepAlive(new GTK.ActivateCallback((widget, userData) => {
                     InitializeWebView();
-                }),
+                })),
                 Marshal.StringToHGlobalAnsi("Tray"),
                 IntPtr.Zero,
                 GTK.GConnectFlags.G_CONNECT_AFTER
@@ -159,9 +167,9 @@ namespace RePlays {
             GTK.gtk_widget_show_all(window);
 
             GTK.g_signal_connect_data(window, "destroy",
-                new GTK.ActivateCallback((widget, userData) => {
+                KeepAlive(new GTK.ActivateCallback((widget, userData) => {
                     window = IntPtr.Zero;
-                }),
+                })),
                 Marshal.StringToHGlobalAnsi("Close"),
                 IntPtr.Zero,
                 GTK.GConnectFlags.G_CONNECT_AFTER
