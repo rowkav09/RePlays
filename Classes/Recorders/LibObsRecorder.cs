@@ -575,6 +575,8 @@ namespace RePlays.Recorders {
                     // https://github.com/obsproject/obs-studio/blob/5697b085da46d6d50e129c264b9c08ecc37914fe/plugins/obs-ffmpeg/obs-ffmpeg-vaapi.c#L805
                     if (Directory.Exists("/dev/dri/by-path")) {
                         string[] pciDevices = Directory.GetFiles("/dev/dri/by-path/");
+                        // directory order is not guaranteed; sort so the same render device is picked every run
+                        Array.Sort(pciDevices, StringComparer.Ordinal);
                         foreach (string fileName in pciDevices) {
                             if (fileName.EndsWith("-render", StringComparison.OrdinalIgnoreCase)) {
                                 obs_data_set_string(videoEncoderSettings, "vaapi_device", fileName);
