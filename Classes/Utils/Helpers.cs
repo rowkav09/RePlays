@@ -920,7 +920,7 @@ namespace RePlays.Utils {
                     };
                     using (Process proc = new Process { StartInfo = psi }) {
                         proc.Start();
-                        string output = string.Join('\n', proc.StandardOutput.ReadToEnd().Split('\n').Where(line => line.Contains("VGA")));
+                        string output = string.Join('\n', proc.StandardOutput.ReadToEnd().Split('\n').Where(line => line.Contains("VGA") || line.Contains("3D controller") || line.Contains("Display controller")));
                         proc.WaitForExit();
                         if (output.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)) {
                             return "NVIDIA";
