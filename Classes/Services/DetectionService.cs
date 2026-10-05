@@ -388,7 +388,9 @@ namespace RePlays.Services {
                 var splitPath = Regex.Split(normalizedPath, "/steamapps/common/", RegexOptions.IgnoreCase);
 
                 string installDir = splitPath[1].Split('/')[0];
-                string steamAppsDir = Path.Combine(Path.GetDirectoryName(splitPath[0]), "Steam/steamapps");
+                // the manifests sit next to the "common" folder the game was found in, so this also works
+                // for games in a Steam library on another drive, not only the default Steam folder
+                string steamAppsDir = Path.Combine(splitPath[0], "steamapps");
 
                 if (!Directory.Exists(steamAppsDir))
                     return Regex.Split(exeFile.Replace("\\", "/"), "/steamapps/common/", RegexOptions.IgnoreCase)[1].Split('/')[0];
