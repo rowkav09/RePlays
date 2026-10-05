@@ -423,6 +423,15 @@ namespace RePlays.Services {
 #else
         private static Thread X11WindowWatcher;
         static IntPtr X11Display;
+        static IntPtr atomClientList, atomWmName, atomWmPid;
+
+        // Each XInternAtom call is a round trip to the X server and the watcher asks for these for
+        // every window ten times a second. An atom never changes for a display, so look each up once.
+        // A missing atom (0) is not stored, so it is looked up again next time.
+        static IntPtr CachedAtom(ref IntPtr cache, string name, bool onlyIfExists) {
+            if (cache == IntPtr.Zero) cache = XInternAtom(X11Display, name, onlyIfExists);
+            return cache;
+        }
         static IntPtr X11RootWindow;
         static Dictionary<nint, X11Window> x11Windows = [];
         struct X11Window {
@@ -645,7 +654,7 @@ namespace RePlays.Services {
                 while (IsStarted) {
                     Dictionary<nint, X11Window> prevWindows = new(x11Windows);
                     x11Windows.Clear();
-                    IntPtr clientListAtom = XInternAtom(X11Display, "_NET_CLIENT_LIST", true);
+                    IntPtr clientListAtom = CachedAtom(ref atomClientList, "_NET_CLIENT_LIST", true);
                     if (clientListAtom != IntPtr.Zero) {
                         if (XGetWindowProperty(X11Display, X11RootWindow, clientListAtom, 0L, ~0L, false, IntPtr.Zero, out nint actualType, out int actualFormat, out uint nItems, out _, out nint prop) == 0) {
                             if (actualFormat == 32 && nItems > 0) {
@@ -732,7 +741,7 @@ namespace RePlays.Services {
             string windowName = "";
 #if !WINDOWS
             IntPtr windowNamePtr = IntPtr.Zero;
-            IntPtr nameAtom = XInternAtom(X11Display, "_NET_WM_NAME", false);
+            IntPtr nameAtom = CachedAtom(ref atomWmName, "_NET_WM_NAME", false);
             if (nameAtom != IntPtr.Zero) {
                 if (XGetWindowProperty(X11Display, window, nameAtom, 0, 16384, false, IntPtr.Zero, out nint actualType, out int actualFormat, out uint nItems, out _, out nint prop) == 0) {
                     if (prop != IntPtr.Zero & nItems > 0) {
@@ -778,7 +787,7 @@ namespace RePlays.Services {
 
         public static int GetWindowPid(IntPtr window) {
 #if !WINDOWS
-            IntPtr pidAtom = XInternAtom(X11Display, "_NET_WM_PID", false);
+            IntPtr pidAtom = CachedAtom(ref atomWmPid, "_NET_WM_PID", false);
 
             if (pidAtom != IntPtr.Zero) {
                 if (XGetWindowProperty(X11Display, window, pidAtom, 0, 1, false, IntPtr.Zero, out nint actualType, out int actualFormat, out uint nItems, out _, out nint prop) == 0) {
