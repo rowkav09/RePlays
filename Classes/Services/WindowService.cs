@@ -737,8 +737,9 @@ namespace RePlays.Services {
                 if (XGetWindowProperty(X11Display, window, nameAtom, 0, 16384, false, IntPtr.Zero, out nint actualType, out int actualFormat, out uint nItems, out _, out nint prop) == 0) {
                     if (prop != IntPtr.Zero & nItems > 0) {
                         windowName = Marshal.PtrToStringAnsi(prop);
-                        XFree(prop);
                     }
+                    // free whatever Xlib returned, including an empty result
+                    if (prop != IntPtr.Zero) XFree(prop);
                 }
             }
 
@@ -781,11 +782,13 @@ namespace RePlays.Services {
 
             if (pidAtom != IntPtr.Zero) {
                 if (XGetWindowProperty(X11Display, window, pidAtom, 0, 1, false, IntPtr.Zero, out nint actualType, out int actualFormat, out uint nItems, out _, out nint prop) == 0) {
+                    int pid = -1;
                     if (actualType == XA_CARD && actualFormat == 32 && nItems == 1) {
-                        int pid = Marshal.ReadInt32(prop);
-                        XFree(prop);
-                        return pid;
+                        pid = Marshal.ReadInt32(prop);
                     }
+                    // free whatever Xlib returned, even when the property was not a single card value
+                    if (prop != IntPtr.Zero) XFree(prop);
+                    return pid;
                 }
             }
 #endif
