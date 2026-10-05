@@ -719,7 +719,9 @@ namespace RePlays.Services {
             winActiveDele = null;
             winResizeDele = null;
 #else
-            X11WindowWatcher.Join(); // Stop
+            // the watcher loop runs while IsStarted is true, so clear it before waiting or Join never returns
+            IsStarted = false;
+            X11WindowWatcher?.Join();
 #endif
         }
 
