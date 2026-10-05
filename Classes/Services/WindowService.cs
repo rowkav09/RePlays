@@ -652,6 +652,7 @@ namespace RePlays.Services {
                                 IntPtr[] windowList = new IntPtr[nItems];
                                 Marshal.Copy(prop, windowList, 0, (int)nItems);
                                 XFree(prop);
+                                prop = IntPtr.Zero;
                                 foreach (IntPtr window in windowList) {
                                     string windowName = GetWindowTitle(window);
 
@@ -693,6 +694,8 @@ namespace RePlays.Services {
                                     }
                                 }
                             }
+                            // Xlib allocates the property data even when it is empty or not a window list, so free it here too
+                            if (prop != IntPtr.Zero) XFree(prop);
                         }
                     }
                     Thread.Sleep(100);
