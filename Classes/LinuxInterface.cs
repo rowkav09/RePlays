@@ -77,7 +77,7 @@ namespace RePlays {
             IntPtr quitMenuItem = GTK.gtk_menu_item_new_with_label("Quit");
             GTK.g_signal_connect_data(quitMenuItem, "activate",
                 KeepAlive(new GTK.ActivateCallback((widget, userData) => {
-                    Environment.Exit(1);
+                    Environment.Exit(0);
                 })),
                 Marshal.StringToHGlobalAnsi("Quit"),
                 IntPtr.Zero,
