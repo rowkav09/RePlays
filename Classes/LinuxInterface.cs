@@ -48,8 +48,7 @@ namespace RePlays {
             IntPtr updateMenuItem = GTK.gtk_menu_item_new_with_label("Check for updates");
             GTK.g_signal_connect_data(updateMenuItem, "activate",
                 KeepAlive(new GTK.ActivateCallback((widget, userData) => {
-                    string label = Marshal.PtrToStringAnsi(userData);
-                    Logger.WriteLine($"Item clicked: {label}");
+                    Updater.CheckForUpdates();
                 })),
                 Marshal.StringToHGlobalAnsi("Check for updates"),
                 IntPtr.Zero,
