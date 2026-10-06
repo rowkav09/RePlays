@@ -92,7 +92,7 @@ namespace RePlays.Services {
             }
             Logger.WriteLine("Saved userSettings.json");
             if (oldSettings.captureSettings.encoder != Settings.captureSettings.encoder) {
-                ((LibObsRecorder)RecordingService.ActiveRecorder).GetAvailableRateControls();
+                (RecordingService.ActiveRecorder as LibObsRecorder)?.GetAvailableRateControls();
             }
         }
 
