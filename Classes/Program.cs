@@ -151,8 +151,6 @@ namespace RePlays {
             (Process.GetCurrentProcess()).Kill(); // this is not a clean exit, need to look into why we can't cleanly exit
 #else
             Directory.SetCurrentDirectory(AppContext.BaseDirectory); //Necessary for libobs in debug(?)
-            SettingsService.LoadSettings();
-            SettingsService.SaveSettings();
             // Serve video files/thumbnails to allow the frontend to use them
             WebServer.Start();
             Thread uiThread = new(LinuxInterface.Create);
