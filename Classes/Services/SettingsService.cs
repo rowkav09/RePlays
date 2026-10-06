@@ -77,12 +77,19 @@ namespace RePlays.Services {
             SaveSettings(data);
         }
 
+        private static readonly object settingsLock = new object();
+
         public static void SaveSettings(SettingsJson settings = null) {
             SettingsJson oldSettings = Settings;
             if (settings == null) settings = Settings;
             _Settings = settings;
             var options = new JsonSerializerOptions { WriteIndented = true };
-            File.WriteAllText(settingsFile, JsonSerializer.Serialize(settings, options));
+            lock (settingsLock) {
+                // write to a temp file and swap it in so a crash mid-write can't leave a truncated settings file
+                var tempFile = settingsFile + ".tmp";
+                File.WriteAllText(tempFile, JsonSerializer.Serialize(settings, options));
+                File.Move(tempFile, settingsFile, true);
+            }
             Logger.WriteLine("Saved userSettings.json");
             if (oldSettings.captureSettings.encoder != Settings.captureSettings.encoder) {
                 ((LibObsRecorder)RecordingService.ActiveRecorder).GetAvailableRateControls();
