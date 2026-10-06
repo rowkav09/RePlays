@@ -520,9 +520,9 @@ namespace RePlays.Utils {
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 FileName = Path.Join(GetFFmpegFolder(), "ffmpeg"),
-                Arguments = string.Format("-ss {0} -y -i \"{1}\" -vframes 1 -s 1024x576 \"{2}\"",
-                    (duration / 2).ToString(CultureInfo.InvariantCulture), videoPath, thumbnailPath),
             };
+            // ArgumentList passes paths through as-is, so quotes in a file name can't break the command
+            foreach (var arg in new[] { "-ss", (duration / 2).ToString(CultureInfo.InvariantCulture), "-y", "-i", videoPath, "-vframes", "1", "-s", "1024x576", thumbnailPath }) startInfo.ArgumentList.Add(arg);
 
             var process = new Process {
                 StartInfo = startInfo
@@ -531,7 +531,7 @@ namespace RePlays.Utils {
             var details = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
 
             if (!File.Exists(thumbnailPath)) {
-                Logger.WriteLine(startInfo.Arguments);
+                Logger.WriteLine(string.Join(' ', startInfo.ArgumentList));
                 Logger.WriteLine($"Failed to create thumbnail {thumbnailPath}, details: {details}");
             }
             else Logger.WriteLine($"Created new thumbnail: {thumbnailPath}");
@@ -672,24 +672,16 @@ namespace RePlays.Utils {
             }
 
             if (clipSegments.Length > 1 && index == clipSegments.Length) {
-                startInfo.Arguments =
-                "-v warning -hide_banner -stats " +
-                "-f concat -safe 0 " +
-                $"-i \"{Path.Join(GetTempFolder(), "list.txt").Replace("\\", "/")}\" " +
-                $"{codecArgs} " +
-                $"\"{outputFile}\"";
-                Logger.WriteLine(startInfo.Arguments);
+                foreach (var arg in new[] { "-v", "warning", "-hide_banner", "-stats", "-f", "concat", "-safe", "0", "-i", Path.Join(GetTempFolder(), "list.txt").Replace("\\", "/") }) startInfo.ArgumentList.Add(arg);
+                foreach (var arg in codecArgs.Split(' ', StringSplitOptions.RemoveEmptyEntries)) startInfo.ArgumentList.Add(arg);
+                startInfo.ArgumentList.Add(outputFile);
+                Logger.WriteLine(string.Join(' ', startInfo.ArgumentList));
             }
             else {
-                startInfo.Arguments =
-                "-v warning -hide_banner -stats " +
-                "-ss " + clipSegments[index].start.ToString(CultureInfo.InvariantCulture) + " " +
-                "-i \"" + inputFile + "\" " +
-                "-t " + clipSegments[index].duration.ToString(CultureInfo.InvariantCulture) + " " +
-                $"{codecArgs} " +
-                "-avoid_negative_ts make_zero -fflags +genpts -y " +
-                $"\"{outputFile}\"";
-                Logger.WriteLine(startInfo.Arguments);
+                foreach (var arg in new[] { "-v", "warning", "-hide_banner", "-stats", "-ss", clipSegments[index].start.ToString(CultureInfo.InvariantCulture), "-i", inputFile, "-t", clipSegments[index].duration.ToString(CultureInfo.InvariantCulture) }) startInfo.ArgumentList.Add(arg);
+                foreach (var arg in codecArgs.Split(' ', StringSplitOptions.RemoveEmptyEntries)) startInfo.ArgumentList.Add(arg);
+                foreach (var arg in new[] { "-avoid_negative_ts", "make_zero", "-fflags", "+genpts", "-y", outputFile }) startInfo.ArgumentList.Add(arg);
+                Logger.WriteLine(string.Join(' ', startInfo.ArgumentList));
             }
 
             var process = new Process {
@@ -728,8 +720,8 @@ namespace RePlays.Utils {
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
                 FileName = Path.Join(GetFFmpegFolder(), "ffprobe"),
-                Arguments = $"-v error -i \"{outputFile}\""
             };
+            foreach (var arg in new[] { "-v", "error", "-i", outputFile }) verifyClip.ArgumentList.Add(arg);
 
             using var verifyClipProcess = Process.Start(verifyClip);
             string output = verifyClipProcess.StandardOutput.ReadToEnd();
