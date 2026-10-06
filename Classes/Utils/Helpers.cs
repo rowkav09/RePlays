@@ -429,8 +429,9 @@ namespace RePlays.Utils {
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 FileName = Path.Join(GetFFmpegFolder(), "ffprobe"),
-                Arguments = string.Format("-i \"{0}\" -show_entries format=duration -v quiet -of csv=\"p = 0\"", videoPath),
             };
+            // ArgumentList passes the path through as-is, so quotes in a file name can't break the command
+            foreach (var arg in new[] { "-i", videoPath, "-show_entries", "format=duration", "-v", "quiet", "-of", "csv=p = 0" }) startInfo.ArgumentList.Add(arg);
 
             var process = new Process {
                 StartInfo = startInfo
@@ -446,7 +447,7 @@ namespace RePlays.Utils {
             catch (Exception e) {
                 // if exception happens, usually means video is not valid?
                 Logger.WriteLine($"Issue retrieving duration of video? exception: '{e.Message}'");
-                Logger.WriteLine($"arguments: {startInfo.Arguments}");
+                Logger.WriteLine($"arguments: {string.Join(' ', startInfo.ArgumentList)}");
                 Logger.WriteLine($"reason: {stdout + stderr}");
                 duration = 0;
             }
@@ -463,8 +464,8 @@ namespace RePlays.Utils {
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 FileName = Path.Join(GetFFmpegFolder(), "ffprobe"),
-                Arguments = string.Format("-i \"{0}\" -select_streams v:0 -show_entries stream=avg_frame_rate -v quiet -of csv=\"p = 0\"", videoPath),
             };
+            foreach (var arg in new[] { "-i", videoPath, "-select_streams", "v:0", "-show_entries", "stream=avg_frame_rate", "-v", "quiet", "-of", "csv=p = 0" }) startInfo.ArgumentList.Add(arg);
 
             var process = new Process {
                 StartInfo = startInfo
@@ -483,7 +484,7 @@ namespace RePlays.Utils {
             }
             catch (Exception e) {
                 Logger.WriteLine($"Issue retrieving fps of video? exception: '{e.Message}'");
-                Logger.WriteLine($"arguments: {startInfo.Arguments}");
+                Logger.WriteLine($"arguments: {string.Join(' ', startInfo.ArgumentList)}");
                 Logger.WriteLine($"reason: {stdout + stderr}");
                 fps = 0;
             }
