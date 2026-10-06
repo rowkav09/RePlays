@@ -58,8 +58,8 @@ namespace RePlays.Classes.Utils {
                     // Map WebSocket endpoint
                     app.Use(async (context, next) => {
                         if (context.Request.Path == "/ws" && context.WebSockets.IsWebSocketRequest) {
-                            if (!IsAllowedOrigin(context.Request.Headers.Origin.ToString())) {
-                                Logger.WriteLine($"Rejected websocket from origin '{context.Request.Headers.Origin}'");
+                            if (!IsAllowedOrigin(context.Request.Headers["Origin"].ToString())) {
+                                Logger.WriteLine($"Rejected websocket from origin '{context.Request.Headers["Origin"]}'");
                                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                                 return;
                             }
