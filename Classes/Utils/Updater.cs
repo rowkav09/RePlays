@@ -160,12 +160,23 @@ namespace RePlays.Utils {
                 else {
                     // plain relaunch of this executable, delayed a moment so the single instance
                     // mutex of this process is gone by the time the new one starts
+#if WINDOWS
                     Process.Start(new ProcessStartInfo {
                         FileName = "cmd.exe",
                         Arguments = $"/C timeout /t 1 & start \"\" \"{Environment.ProcessPath}\"",
                         UseShellExecute = true,
                         WindowStyle = ProcessWindowStyle.Hidden
                     });
+#else
+                    var relaunch = new ProcessStartInfo {
+                        FileName = "/bin/sh",
+                        UseShellExecute = false
+                    };
+                    relaunch.ArgumentList.Add("-c");
+                    relaunch.ArgumentList.Add("sleep 1; exec \"$0\"");
+                    relaunch.ArgumentList.Add(Environment.ProcessPath);
+                    Process.Start(relaunch);
+#endif
                 }
             }
             catch (Exception exception) {
