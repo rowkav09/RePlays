@@ -572,6 +572,10 @@ namespace RePlays.Utils {
                 string.Equals(RecordingService.GetCurrentSession()?.VideoSavePath, videoPath, StringComparison.OrdinalIgnoreCase);
         }
 
+        // videos whose duration or fps still probed as 0 once they were finished; don't
+        // spawn ffprobe for them again on every listing
+        private static readonly HashSet<string> _probedUnreadable = new(StringComparer.OrdinalIgnoreCase);
+
         public static VideoMetadata GetOrCreateMetadata(string videoPath) {
             lock (_metafileLock) {
                 string thumbsDir = Path.Combine(Path.GetDirectoryName(videoPath), ".thumbs/");
@@ -582,9 +586,10 @@ namespace RePlays.Utils {
                     // a metadata created while its video was still recording has no
                     // duration yet, and one created before fps was tracked has no fps -
                     // fill them in once the file is finished
-                    if ((metadata.duration == 0 || metadata.fps == 0) && !IsBeingRecorded(videoPath)) {
+                    if ((metadata.duration == 0 || metadata.fps == 0) && !_probedUnreadable.Contains(videoPath) && !IsBeingRecorded(videoPath)) {
                         var probedDuration = metadata.duration > 0 ? metadata.duration : GetVideoDuration(videoPath);
                         var probedFps = probedDuration > 0 ? GetVideoFps(videoPath) : 0;
+                        if (probedDuration == 0 || probedFps == 0) _probedUnreadable.Add(videoPath);
                         if (probedDuration != metadata.duration || probedFps != metadata.fps) {
                             metadata.duration = probedDuration;
                             metadata.fps = probedFps;
