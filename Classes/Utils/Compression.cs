@@ -69,8 +69,9 @@ namespace RePlays.Utils {
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
                 FileName = Path.Join(GetFFmpegFolder(), "ffprobe"),
-                Arguments = $"-v error -i \"{compressedFileSize}\""
             };
+            // this used to pass the size in bytes as the file name, so the check always failed
+            foreach (var arg in new[] { "-v", "error", "-i", filePathCompressed }) startInfo.ArgumentList.Add(arg);
 
             using var verifyProcess = Process.Start(startInfo);
             string output = verifyProcess.StandardOutput.ReadToEnd();
