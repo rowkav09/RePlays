@@ -10,7 +10,9 @@ namespace RePlays.Services {
             string folderPath = GetPlaysFolder();
             DriveInfo dInfo = new DriveInfo(folderPath);
             double percentOfUsedDisk = (dInfo.TotalSize - dInfo.TotalFreeSpace) / (double)dInfo.TotalSize * 100;
-            double folderSizeGb = DirectorySize(new DirectoryInfo(folderPath)) / 1024f / 1024f / 1024f;
+            // walking the whole plays folder is slow with a big library, so only do it when a size limit needs it
+            bool needsFolderSize = SettingsService.Settings.storageSettings.autoManageSpace || SettingsService.Settings.storageSettings.manageSpaceLimit > 0;
+            double folderSizeGb = needsFolderSize ? DirectorySize(new DirectoryInfo(folderPath)) / 1024f / 1024f / 1024f : 0;
 
             if (SettingsService.Settings.storageSettings.autoManageSpace) {
                 Logger.WriteLine(string.Format("VideoSaveDir '{0}' size is {1} gbs", folderPath, folderSizeGb));
