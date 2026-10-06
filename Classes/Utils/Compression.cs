@@ -11,12 +11,13 @@ namespace RePlays.Utils {
         public static void CompressFile(string filePath, CompressClip data) {
             ProcessStartInfo startInfo = new ProcessStartInfo {
                 FileName = Path.Join(GetFFmpegFolder(), "ffmpeg"),
-                Arguments = string.Format("-i \"{0}\" -vcodec libx264 -preset \"{1}\" \"{2}\"", filePath, data.quality, filePath.Replace(".mkv", "-compressed.mkv").Replace(".mp4", "-compressed.mp4")),
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true,
             };
+
+            foreach (var arg in new[] { "-i", filePath, "-vcodec", "libx264", "-preset", data.quality ?? "medium", filePath.Replace(".mkv", "-compressed.mkv").Replace(".mp4", "-compressed.mp4") }) startInfo.ArgumentList.Add(arg);
 
             Process process = new Process {
                 StartInfo = startInfo,
