@@ -1,3 +1,4 @@
+using RePlays.Classes.Utils;
 using RePlays.Recorders;
 using RePlays.Services;
 using System;
@@ -67,11 +68,11 @@ namespace RePlays.Utils {
         public static string GetRePlaysURI() {
 #if DEBUG 
             if (GetProgramArgs().Any("--use-build-ui".Contains)) {
-                return "file://" + GetSolutionPath() + "/ClientApp/build/index.html";
+                return "file://" + GetSolutionPath() + $"/ClientApp/build/index.html?port={WebServer.Port}";
             }
-            return "http://localhost:3000/#/";
+            return $"http://localhost:3000/?port={WebServer.Port}#/";
 #else
-            return "file://" + GetStartupPath() + "/ClientApp/build/index.html";
+            return "file://" + GetStartupPath() + $"/ClientApp/build/index.html?port={WebServer.Port}";
 #endif
         }
 
@@ -390,12 +391,12 @@ namespace RePlays.Utils {
                 };
 
 #if DEBUG && WINDOWS
-                video.folder = "http://localhost:3001/"; // if not using web server: https://videos.replays.app/
+                video.folder = $"http://localhost:{WebServer.Port}/"; // if not using web server: https://videos.replays.app/
 #else
                 if (isRePlaysWebView)
                     video.folder = "file://" + Path.GetFullPath(Path.Combine(Path.GetDirectoryName(file.FullName), "..")).Replace("\\", "/");
                 else
-                    video.folder = "http://localhost:3001/";
+                    video.folder = $"http://localhost:{WebServer.Port}/";
 #endif
 
                 var thumb = GetOrCreateThumbnail(file.FullName, video.metadata.duration);

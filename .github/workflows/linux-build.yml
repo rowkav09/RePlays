@@ -53,7 +53,7 @@ jobs:
         run: dotnet build RePlays.csproj -c Release -r linux-x64 -p:EnforceCodeStyleInBuild=false -p:RunAnalyzers=false
 
       # starts the app on a virtual display with a clean config and checks
-      # that it stays up and serves on :3001. startup time and memory are
+      # that it stays up and serves on :38417. startup time and memory are
       # only reported, not checked, until there are enough runs to know the noise
       - name: Start app and check it serves
         run: |
@@ -65,7 +65,7 @@ jobs:
           xvfb-run -a ./RePlays > "$RUNNER_TEMP/app.log" 2>&1 &
           up=0
           for i in $(seq 1 60); do
-            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/ || true)
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:38417/ || true)
             if [ "$code" != "000" ] && [ -n "$code" ]; then up=1; break; fi
             sleep 0.5
           done
@@ -85,7 +85,7 @@ jobs:
           fi
           {
             echo "### Startup smoke test (${{ matrix.webkit }})"
-            echo "- served on :3001: $up"
+            echo "- served on :38417: $up"
             echo "- still running after 5s: $alive"
             echo "- time to first response: $(awk "BEGIN {printf \"%.1f\", $end - $start}") s"
             echo "- RSS: $((rss_kb / 1024)) MB"
