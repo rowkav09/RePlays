@@ -2,7 +2,9 @@ if (
   window.external?.receiveMessage == undefined ||
   window.chrome?.webview?.postMessage == undefined
 ) {
-  const socket = new WebSocket('ws://localhost:3001/ws');
+  // the app passes the port it is serving on as ?port=, 38417 is its default
+  const port = new URLSearchParams(window.location.search).get('port') ?? '38417';
+  const socket = new WebSocket(`ws://localhost:${port}/ws`);
   // Connection opened
   socket.addEventListener('open', (event) => {
     // @ts-ignore
