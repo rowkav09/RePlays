@@ -967,6 +967,7 @@ namespace RePlays.Utils {
         private static Timer checkForNvidiaUpdateTimer;
 
         public static async void DownloadNvidiaAudioSDK() {
+#if WINDOWS
             var query = new ObjectQuery("SELECT * FROM Win32_VideoController");
             var searcher = new ManagementObjectSearcher(query);
 
@@ -1036,6 +1037,9 @@ namespace RePlays.Utils {
             checkForNvidiaUpdateTimer.Elapsed += TimerElapsed;
             checkForNvidiaUpdateTimer.AutoReset = true;
             checkForNvidiaUpdateTimer.Start();
+#else
+            WebMessage.DisplayModal("NVIDIA Noise Removal is only supported on Windows.", "Warning", "warning");
+#endif
         }
 
         private static void TimerElapsed(object sender, ElapsedEventArgs e) {
