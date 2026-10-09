@@ -1,0 +1,75 @@
+using System;
+using System.Threading.Tasks;
+using RePlays.Recorders;
+using RePlays.Services;
+
+class Fake : BaseRecorder {
+    public int Starts, Stops;
+    public override void Start() {}
+    public override Task<bool> StartRecording() { Starts++; return Task.FromResult(true); }
+    public TaskCompletionSource<bool> Gate;
+    public override Task<bool> StopRecording() { Stops++; return Gate == null ? Task.FromResult(false) : Gate.Task; }
+    public override void LostFocus() {}
+    public override void GainedFocus() {}
+    public override bool? TrySaveReplayBufferAndBookmarks() => null;
+}
+class P {
+    static async Task Main() {
+        var f = new Fake();
+        RecordingService.ActiveRecorder = f; WindowService.Start(); await Task.Delay(1500);
+        int pid = Environment.ProcessId; // a live process
+        RecordingService.SetCurrentSession(pid, (nint)long.Parse(Environment.GetEnvironmentVariable("WID")), "TestGame", "/tmp/testgame.exe");
+        RecordingService.StartRecording(false);
+        await Task.Delay(500);
+        Console.WriteLine($"after auto start: recording={RecordingService.IsRecording} starts={f.Starts}");
+        RecordingService.StopRecording(true);          // user toggles recording off
+        await Task.Delay(500);
+        Console.WriteLine($"after user stop: recording={RecordingService.IsRecording} stops={f.Stops}");
+        // game regains focus -> detection re-announces the same live process
+        RecordingService.SetCurrentSession(pid, (nint)long.Parse(Environment.GetEnvironmentVariable("WID")), "TestGame", "/tmp/testgame.exe");
+        RecordingService.StartRecording(false);
+        await Task.Delay(500);
+        Console.WriteLine($"after refocus auto-detect: recording={RecordingService.IsRecording} starts={f.Starts}");
+        int fail = 0;
+        if (RecordingService.IsRecording || f.Starts != 1) { Console.WriteLine("FAIL: user-stopped game was auto-started again"); fail = 1; }
+        // a different live process is still auto-recorded
+        var other = System.Diagnostics.Process.Start("sleep", "30");
+        RecordingService.SetCurrentSession(other.Id, (nint)long.Parse(Environment.GetEnvironmentVariable("WID")), "Other", "/tmp/other.exe");
+        RecordingService.StartRecording(false);
+        await Task.Delay(500);
+        Console.WriteLine($"other process: recording={RecordingService.IsRecording} starts={f.Starts}");
+        if (!RecordingService.IsRecording || f.Starts != 2) { Console.WriteLine("FAIL: other process not auto-recorded"); fail = 1; }
+        // user stops it, then the process exits: suppression must not outlive the process
+        RecordingService.StopRecording(true);
+        await Task.Delay(500);
+        other.Kill(); other.WaitForExit();
+        RecordingService.SetCurrentSession(other.Id, (nint)long.Parse(Environment.GetEnvironmentVariable("WID")), "Other", "/tmp/other.exe");
+        RecordingService.StartRecording(false);
+        await Task.Delay(500);
+        Console.WriteLine($"exited process re-announced: recording={RecordingService.IsRecording} starts={f.Starts}");
+        if (!RecordingService.IsRecording || f.Starts != 3) { Console.WriteLine("FAIL: suppression outlived the process"); fail = 1; }
+        // two overlapping user stops while the recorder stop is still pending
+        RecordingService.StopRecording(true);
+        await Task.Delay(300);
+        var third = System.Diagnostics.Process.Start("sleep", "30");
+        long wid = long.Parse(Environment.GetEnvironmentVariable("WID"));
+        RecordingService.SetCurrentSession(third.Id, (nint)wid, "Third", "/tmp/third.exe");
+        RecordingService.StartRecording(false);
+        await Task.Delay(500);
+        int startsBefore = f.Starts;
+        f.Gate = new TaskCompletionSource<bool>();
+        RecordingService.StopRecording(true);
+        RecordingService.StopRecording(true);
+        f.Gate.SetResult(false);
+        await Task.Delay(500);
+        f.Gate = null;
+        RecordingService.SetCurrentSession(third.Id, (nint)wid, "Third", "/tmp/third.exe");
+        RecordingService.StartRecording(false);
+        await Task.Delay(500);
+        Console.WriteLine($"after overlapping stops, re-announced: recording={RecordingService.IsRecording} starts={f.Starts} (before {startsBefore})");
+        if (RecordingService.IsRecording || f.Starts != startsBefore) { Console.WriteLine("FAIL: overlapping stops lost the user stop"); fail = 1; }
+        third.Kill(); third.WaitForExit();
+        Console.WriteLine(fail == 0 ? "PASS" : "FAILED");
+        Environment.Exit(fail == 0 ? 0 : 134);
+    }
+}
