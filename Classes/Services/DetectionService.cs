@@ -154,7 +154,16 @@ namespace RePlays.Services {
 #if !WINDOWS
             // If process is launching as a wine executable
             if (processId != 0 && Regex.IsMatch(executablePath, @".*(?:/wine64-preloader|/wine-preloader)$")) {
-                string cmdLineArgs = File.ReadAllText($"/proc/{processId}/cmdline").Replace('\0', ' ');
+                string cmdLineArgs = null;
+                try {
+                    cmdLineArgs = File.ReadAllText($"/proc/{processId}/cmdline").Replace('\0', ' ');
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException) {
+                    // the process can exit between the window event and this read, and the window
+                    // watcher thread has no handler, so an exception here would take the app down
+                    Logger.WriteLine($"Could not read /proc/{processId}/cmdline: {e.Message}");
+                    return false;
+                }
                 // Retrieve .exe path from cmdLineArgs
                 Match match = Regex.Match(cmdLineArgs, @"[A-Za-z]:[\\\/](.+\.exe)");
                 if (match.Success)
