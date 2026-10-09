@@ -1,0 +1,49 @@
+using System;
+using System.IO;
+using System.Reflection;
+using System.Threading;
+using RePlays.Services;
+class FailingIntegration : RePlays.Integrations.Integration {
+    public override System.Threading.Tasks.Task Start() => System.Threading.Tasks.Task.CompletedTask;
+    public override System.Threading.Tasks.Task Shutdown() => throw new InvalidOperationException("shutdown failed");
+}
+class P {
+    static int Main() {
+        var asm = typeof(RePlays.Services.Bookmark).Assembly;
+        bool ok = true;
+        // 1. where the CS2 gamestate config goes, from the game exe on each platform
+        var cs2 = Activator.CreateInstance(asm.GetType("RePlays.Integrations.CS2Integration"), true);
+        var path = cs2.GetType().GetMethod("GetInstallationPath", BindingFlags.NonPublic | BindingFlags.Instance);
+        var sessionField = typeof(RecordingService).GetField("currentSession", BindingFlags.NonPublic | BindingFlags.Static);
+        foreach (var (exe, want) in new[] {
+            ("/home/u/.steam/steamapps/common/Counter-Strike Global Offensive/game/bin/linuxsteamrt64/cs2", "/home/u/.steam/steamapps/common/Counter-Strike Global Offensive/game/csgo/cfg/gamestate_integration_replays.cfg"),
+            (@"C:\Steam\steamapps\common\Counter-Strike Global Offensive\game\bin\win64\cs2.exe", "C:/Steam/steamapps/common/Counter-Strike Global Offensive/game/csgo/cfg/gamestate_integration_replays.cfg"),
+        }) {
+            sessionField.SetValue(null, new RecordingService.Session(1, 0, "Counter-Strike 2", exe));
+            string got;
+            try { got = (string)path.Invoke(cs2, null); } catch (Exception e) { got = "throws " + (e.InnerException ?? e).GetType().Name; }
+            bool good = got == want;
+            ok &= good;
+            Console.WriteLine($"config path for {Path.GetFileName(exe)}: {got} -> {(good ? "ok" : "WRONG")}");
+        }
+        // 2. a CS2 integration that cannot start must not take the app down (Start is async void)
+        bool crashed = false;
+        AppDomain.CurrentDomain.UnhandledException += (s, e) => { crashed = true; Console.WriteLine("UNHANDLED: " + ((Exception)e.ExceptionObject).GetType().Name); Console.WriteLine("app crash -> WRONG"); Console.WriteLine("FAILED"); Environment.Exit(134); };
+        sessionField.SetValue(null, null);
+        IntegrationService.Start("Counter-Strike 2");
+        Thread.Sleep(2000);
+        Console.WriteLine($"integration start with no session, app survived={!crashed} -> {(crashed ? "WRONG" : "ok")}");
+        // 3. replacing an existing integration whose shutdown fails must not crash either
+        var active = typeof(IntegrationService).GetField("activeGameIntegration", BindingFlags.NonPublic | BindingFlags.Static);
+        active.SetValue(null, new FailingIntegration());
+        IntegrationService.Start("Some Unknown Game");
+        Thread.Sleep(1000);
+        Console.WriteLine($"replacing a failing integration, app survived={!crashed} -> {(crashed ? "WRONG" : "ok")}");
+        active.SetValue(null, new FailingIntegration());
+        IntegrationService.Shutdown();
+        Thread.Sleep(1000);
+        Console.WriteLine($"shutting down a failing integration, app survived={!crashed} -> {(crashed ? "WRONG" : "ok")}");
+        Console.WriteLine(ok && !crashed ? "PASS" : "FAILED");
+        return ok && !crashed ? 0 : 134;
+    }
+}
