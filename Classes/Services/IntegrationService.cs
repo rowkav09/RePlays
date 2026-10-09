@@ -1,5 +1,6 @@
 ﻿using RePlays.Integrations;
 using RePlays.Utils;
+using System;
 
 namespace RePlays.Services {
     public static class IntegrationService {
@@ -14,7 +15,12 @@ namespace RePlays.Services {
         public static async void Start(string gameName) {
             if (activeGameIntegration != null) {
                 Logger.WriteLine("Active game integration already exists! Shutting down before starting");
-                await ActiveGameIntegration.Shutdown();
+                try {
+                    await ActiveGameIntegration.Shutdown();
+                }
+                catch (Exception ex) {
+                    Logger.WriteLine($"Previous game integration failed to shut down: {ex.Message}");
+                }
             }
             switch (gameName) {
                 case LEAGUE_OF_LEGENDS:
@@ -40,14 +46,26 @@ namespace RePlays.Services {
 
             if (ActiveGameIntegration == null) return;
             Logger.WriteLine("Starting game integration");
-            await ActiveGameIntegration.Start();
+            try {
+                await ActiveGameIntegration.Start();
+            }
+            catch (Exception ex) {
+                // this is async void, so an exception here (config folder missing, port already in use)
+                // would take the whole app down instead of just skipping the integration
+                Logger.WriteLine($"Game integration failed to start: {ex.Message}");
+            }
         }
 
         public static async void Shutdown() {
             if (ActiveGameIntegration == null)
                 return;
             Logger.WriteLine("Shutting down game integration");
-            await ActiveGameIntegration.Shutdown();
+            try {
+                await ActiveGameIntegration.Shutdown();
+            }
+            catch (Exception ex) {
+                Logger.WriteLine($"Game integration failed to shut down: {ex.Message}");
+            }
             activeGameIntegration = null;
         }
     }
