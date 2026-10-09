@@ -1,0 +1,35 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using RePlays.Utils;
+class P {
+    static byte[] Original() { var b = new byte[1000]; for (int i = 0; i < b.Length; i++) b[i] = (byte)(i % 251); return b; }
+    // success: the clip is replaced by the (smaller) compressed output, under its original name.
+    // failure: the clip is byte-for-byte untouched and no compressed leftover remains.
+    static bool Run(string name, string ext, bool expectSuccess) {
+        string dir = Path.Combine(Path.GetTempPath(), "cmp-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        string path = Path.Combine(dir, name + ext);
+        File.WriteAllBytes(path, Original());
+        Compression.CompressFile(path, new CompressClip { game = "Game", quality = "medium" });
+        Thread.Sleep(3000);
+        byte[] now = File.Exists(path) ? File.ReadAllBytes(path) : null;
+        string files = string.Join(",", Directory.GetFiles(dir).Select(Path.GetFileName));
+        bool ok;
+        if (expectSuccess) ok = now != null && now.Length == 500 && files == name + ext;
+        else ok = now != null && now.SequenceEqual(Original()) && files == name + ext;
+        Console.WriteLine($"{name}{ext}: expect {(expectSuccess ? "compressed" : "untouched")}, exists={now != null}, len={(now?.Length ?? -1)}, files=[{files}] -> {(ok ? "ok" : "WRONG")}");
+        return ok;
+    }
+    static int Main() {
+        bool all = true;
+        foreach (var ext in new[] { ".mp4", ".mkv", ".mov" }) all &= Run("clip", ext, true);
+        all &= Run("failclip", ".mp4", false);      // ffmpeg exits 1 without output
+        all &= Run("partialclip", ".mp4", false);   // ffmpeg writes 500 bytes then exits 1
+        all &= Run("probebadclip", ".mp4", false);  // ffprobe exits 1 on the output
+        all &= Run("probeerrclip", ".mkv", false);  // ffprobe exits 0 but reports on stderr
+        Console.WriteLine(all ? "PASS" : "FAILED");
+        return all ? 0 : 134;
+    }
+}
