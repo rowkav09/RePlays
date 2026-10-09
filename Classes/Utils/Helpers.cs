@@ -576,7 +576,7 @@ namespace RePlays.Utils {
 
         // videos whose duration or fps still probed as 0 once they were finished; don't
         // spawn ffprobe for them again on every listing
-        private static readonly HashSet<string> _probedUnreadable = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly HashSet<string> _probedUnreadable = new(OperatingSystem.IsLinux() ? StringComparer.Ordinal : StringComparer.OrdinalIgnoreCase);
 
         public static VideoMetadata GetOrCreateMetadata(string videoPath) {
             lock (_metafileLock) {
