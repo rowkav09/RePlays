@@ -108,7 +108,14 @@ namespace RePlays.Classes.Utils {
                         var receivedMessage = Encoding.UTF8.GetString(message.GetBuffer(), 0, (int)message.Length);
                         message.SetLength(0);
 #if !WINDOWS
-                        await WebMessage.ReceiveMessage(receivedMessage);
+                        try {
+                            await WebMessage.ReceiveMessage(receivedMessage);
+                        }
+                        catch (Exception ex) {
+                            // one malformed or failing message (bad JSON, a missing field, a launcher that is
+                            // not installed) must not end the loop, or the UI loses its connection for good
+                            Logger.WriteLine($"Failed to handle websocket message: {ex.Message}");
+                        }
 #endif
                     }
                     else if (result.MessageType == WebSocketMessageType.Close) {
