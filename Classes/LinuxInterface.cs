@@ -12,6 +12,7 @@ namespace RePlays {
     public static class LinuxInterface {
         static readonly string icon = Path.Join(GetResourcesFolder(), "logo.svg");
         static IntPtr window;
+        static bool hasTray;
         static readonly System.Collections.Generic.List<Delegate> keepAlive = new();
         // GTK keeps only a raw function pointer for each callback. If the managed delegate is
         // collected the next click or close calls freed memory, so hold on to every one we hand over.
@@ -85,14 +86,25 @@ namespace RePlays {
             GTK.gtk_menu_shell_append(menu, quitMenuItem);
             GTK.gtk_widget_show(quitMenuItem);
 #if true
-            IntPtr indicator = Ayatana.app_indicator_new("RePlays", icon, 0);
-            if (indicator == IntPtr.Zero) {
-                Logger.WriteLine("Failed to create system tray.");
-                return;
+            try {
+                IntPtr indicator = Ayatana.app_indicator_new("RePlays", icon, 0);
+                if (indicator != IntPtr.Zero) {
+                    Ayatana.app_indicator_set_status(indicator, 1);
+                    Ayatana.app_indicator_set_icon(indicator, icon);
+                    Ayatana.app_indicator_set_menu(indicator, menu);
+                    hasTray = true;
+                }
             }
-            Ayatana.app_indicator_set_status(indicator, 1);
-            Ayatana.app_indicator_set_icon(indicator, icon);
-            Ayatana.app_indicator_set_menu(indicator, menu);
+            catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException) {
+                // libayatana-appindicator is not installed by default on every distro (Fedora, for one)
+                Logger.WriteLine($"System tray library not available: {ex.Message}");
+            }
+            if (!hasTray) {
+                // the tray is the only way back into the interface when it starts minimized, and without
+                // a main loop the window already open would just freeze, so show the window and keep going
+                Logger.WriteLine("No system tray, opening the interface instead. Closing its window will quit RePlays.");
+                InitializeWebView();
+            }
 #else
             // Create status icon tray
             IntPtr statusIcon = GTK.gtk_status_icon_new();
@@ -168,6 +180,8 @@ namespace RePlays {
             GTK.g_signal_connect_data(window, "destroy",
                 KeepAlive(new GTK.ActivateCallback((widget, userData) => {
                     window = IntPtr.Zero;
+                    // without a tray there is no way to reopen the window, so closing it quits
+                    if (!hasTray) Environment.Exit(0);
                 })),
                 Marshal.StringToHGlobalAnsi("Close"),
                 IntPtr.Zero,
