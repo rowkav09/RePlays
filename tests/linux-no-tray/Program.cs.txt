@@ -1,0 +1,32 @@
+using System;
+using System.Reflection;
+using System.Threading;
+using RePlays.Services;
+// Linux without a tray library (libayatana-appindicator missing, as on a stock Fedora/GNOME install).
+// The interface thread must not crash the app, and with no tray the window must still be opened,
+// even when "start minimized" is on, because the tray is the only other way to open it.
+class P {
+    static int Main() {
+        var asm = typeof(RePlays.Services.Bookmark).Assembly;
+        var li = asm.GetType("RePlays.LinuxInterface");
+        string crash = null;
+        AppDomain.CurrentDomain.UnhandledException += (s, e) => {
+            crash = ((Exception)e.ExceptionObject).GetType().Name;
+            Console.WriteLine($"UNHANDLED on the interface thread: {crash}");
+            Console.WriteLine("FAILED");
+            Environment.Exit(134);
+        };
+        SettingsService.Settings.generalSettings.startMinimized = true;
+        var t = new Thread(() => { try { li.GetMethod("Create").Invoke(null, null); } catch (TargetInvocationException e) { throw e.InnerException; } });
+        t.Start();
+        Thread.Sleep(4000);
+        var windowField = li.GetField("window", BindingFlags.NonPublic | BindingFlags.Static);
+        bool windowOpen = (IntPtr)windowField.GetValue(null) != IntPtr.Zero;
+        bool loopRunning = t.IsAlive;
+        Console.WriteLine($"no tray: crashed={crash != null}, window opened={windowOpen}, gtk loop running={loopRunning}");
+        bool ok = crash == null && windowOpen && loopRunning;
+        Console.WriteLine(ok ? "PASS" : "FAILED");
+        Environment.Exit(ok ? 0 : 134);
+        return 0;
+    }
+}
