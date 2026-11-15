@@ -19,8 +19,11 @@ mkdir -p "$install_dir"
 tar -xzf "$archive" -C "$install_dir" --strip-components=1
 
 export HOME="$scratch/home" XDG_VIDEOS_DIR="$scratch/home/Videos"
+# Give the app a private writable location for its .NET single-instance lock.
+export XDG_RUNTIME_DIR="$scratch/runtime"
 export REPLAYS_WEB_PORT=38417
 mkdir -p "$XDG_VIDEOS_DIR" "$scratch/cfg"
+mkdir -m 700 "$XDG_RUNTIME_DIR"
 printf '{"generalSettings":{"startMinimized":%s}}\n' "$start_minimized" > "$scratch/cfg/userSettings.json"
 
 cd "$install_dir"
