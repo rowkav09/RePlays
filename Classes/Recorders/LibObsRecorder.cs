@@ -103,6 +103,36 @@ namespace RePlays.Recorders {
         [DllImport("libX11.so.6", EntryPoint = "XOpenDisplay")]
         public static extern IntPtr XOpenDisplay(IntPtr display);
 
+#if !WINDOWS
+        [DllImport("libX11.so.6", EntryPoint = "XDefaultScreen")]
+        static extern int XDefaultScreen(IntPtr display);
+
+        [DllImport("libX11.so.6", EntryPoint = "XDisplayWidth")]
+        static extern int XDisplayWidth(IntPtr display, int screen);
+
+        [DllImport("libX11.so.6", EntryPoint = "XDisplayHeight")]
+        static extern int XDisplayHeight(IntPtr display, int screen);
+
+        [DllImport("libX11.so.6", EntryPoint = "XCloseDisplay")]
+        static extern int XCloseDisplay(IntPtr display);
+
+        // size of the X screen, used as the canvas when no output size is set;
+        // falls back to 1920x1080 if the display can't be opened
+        static (int width, int height) GetX11ScreenSize() {
+            IntPtr display = XOpenDisplay(IntPtr.Zero);
+            if (display == IntPtr.Zero) return (1920, 1080);
+            try {
+                int screen = XDefaultScreen(display);
+                int width = XDisplayWidth(display, screen);
+                int height = XDisplayHeight(display, screen);
+                return width > 0 && height > 0 ? (width, height) : (1920, 1080);
+            }
+            finally {
+                XCloseDisplay(display);
+            }
+        }
+#endif
+
         public override void Start() {
             if (Connected) return;
 
@@ -888,8 +918,7 @@ namespace RePlays.Recorders {
             var screenWidth = screen.Bounds.Width;
             var screenHeight = screen.Bounds.Height;
 #else
-            var screenWidth = 1920;
-            var screenHeight = 1080;
+            var (screenWidth, screenHeight) = GetX11ScreenSize();
 #endif
 
             obs_video_info ovi = new() {

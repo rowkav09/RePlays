@@ -1,3 +1,4 @@
+using RePlays.Classes.Utils;
 using RePlays.Recorders;
 using RePlays.Services;
 using System;
@@ -67,11 +68,11 @@ namespace RePlays.Utils {
         public static string GetRePlaysURI() {
 #if DEBUG 
             if (GetProgramArgs().Any("--use-build-ui".Contains)) {
-                return "file://" + GetSolutionPath() + "/ClientApp/build/index.html";
+                return "file://" + GetSolutionPath() + $"/ClientApp/build/index.html?port={WebServer.Port}";
             }
-            return "http://localhost:3000/#/";
+            return $"http://localhost:3000/?port={WebServer.Port}#/";
 #else
-            return "file://" + GetStartupPath() + "/ClientApp/build/index.html";
+            return "file://" + GetStartupPath() + $"/ClientApp/build/index.html?port={WebServer.Port}";
 #endif
         }
 
@@ -390,12 +391,12 @@ namespace RePlays.Utils {
                 };
 
 #if DEBUG && WINDOWS
-                video.folder = "http://localhost:3001/"; // if not using web server: https://videos.replays.app/
+                video.folder = $"http://localhost:{WebServer.Port}/"; // if not using web server: https://videos.replays.app/
 #else
                 if (isRePlaysWebView)
                     video.folder = "file://" + Path.GetFullPath(Path.Combine(Path.GetDirectoryName(file.FullName), "..")).Replace("\\", "/");
                 else
-                    video.folder = "http://localhost:3001/";
+                    video.folder = $"http://localhost:{WebServer.Port}/";
 #endif
 
                 var thumb = GetOrCreateThumbnail(file.FullName, video.metadata.duration);
@@ -429,8 +430,9 @@ namespace RePlays.Utils {
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 FileName = Path.Join(GetFFmpegFolder(), "ffprobe"),
-                Arguments = string.Format("-i \"{0}\" -show_entries format=duration -v quiet -of csv=\"p = 0\"", videoPath),
             };
+            // ArgumentList passes the path through as-is, so quotes in a file name can't break the command
+            foreach (var arg in new[] { "-i", videoPath, "-show_entries", "format=duration", "-v", "quiet", "-of", "csv=p = 0" }) startInfo.ArgumentList.Add(arg);
 
             var process = new Process {
                 StartInfo = startInfo
@@ -446,7 +448,7 @@ namespace RePlays.Utils {
             catch (Exception e) {
                 // if exception happens, usually means video is not valid?
                 Logger.WriteLine($"Issue retrieving duration of video? exception: '{e.Message}'");
-                Logger.WriteLine($"arguments: {startInfo.Arguments}");
+                Logger.WriteLine($"arguments: {string.Join(' ', startInfo.ArgumentList)}");
                 Logger.WriteLine($"reason: {stdout + stderr}");
                 duration = 0;
             }
@@ -463,8 +465,8 @@ namespace RePlays.Utils {
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 FileName = Path.Join(GetFFmpegFolder(), "ffprobe"),
-                Arguments = string.Format("-i \"{0}\" -select_streams v:0 -show_entries stream=avg_frame_rate -v quiet -of csv=\"p = 0\"", videoPath),
             };
+            foreach (var arg in new[] { "-i", videoPath, "-select_streams", "v:0", "-show_entries", "stream=avg_frame_rate", "-v", "quiet", "-of", "csv=p = 0" }) startInfo.ArgumentList.Add(arg);
 
             var process = new Process {
                 StartInfo = startInfo
@@ -483,7 +485,7 @@ namespace RePlays.Utils {
             }
             catch (Exception e) {
                 Logger.WriteLine($"Issue retrieving fps of video? exception: '{e.Message}'");
-                Logger.WriteLine($"arguments: {startInfo.Arguments}");
+                Logger.WriteLine($"arguments: {string.Join(' ', startInfo.ArgumentList)}");
                 Logger.WriteLine($"reason: {stdout + stderr}");
                 fps = 0;
             }
@@ -520,9 +522,9 @@ namespace RePlays.Utils {
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 FileName = Path.Join(GetFFmpegFolder(), "ffmpeg"),
-                Arguments = string.Format("-ss {0} -y -i \"{1}\" -vframes 1 -s 1024x576 \"{2}\"",
-                    (duration / 2).ToString(CultureInfo.InvariantCulture), videoPath, thumbnailPath),
             };
+            // ArgumentList passes paths through as-is, so quotes in a file name can't break the command
+            foreach (var arg in new[] { "-ss", (duration / 2).ToString(CultureInfo.InvariantCulture), "-y", "-i", videoPath, "-vframes", "1", "-s", "1024x576", thumbnailPath }) startInfo.ArgumentList.Add(arg);
 
             var process = new Process {
                 StartInfo = startInfo
@@ -531,7 +533,7 @@ namespace RePlays.Utils {
             var details = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
 
             if (!File.Exists(thumbnailPath)) {
-                Logger.WriteLine(startInfo.Arguments);
+                Logger.WriteLine(string.Join(' ', startInfo.ArgumentList));
                 Logger.WriteLine($"Failed to create thumbnail {thumbnailPath}, details: {details}");
             }
             else Logger.WriteLine($"Created new thumbnail: {thumbnailPath}");
@@ -572,6 +574,10 @@ namespace RePlays.Utils {
                 string.Equals(RecordingService.GetCurrentSession()?.VideoSavePath, videoPath, StringComparison.OrdinalIgnoreCase);
         }
 
+        // videos whose duration or fps still probed as 0 once they were finished; don't
+        // spawn ffprobe for them again on every listing
+        private static readonly HashSet<string> _probedUnreadable = new(OperatingSystem.IsLinux() ? StringComparer.Ordinal : StringComparer.OrdinalIgnoreCase);
+
         public static VideoMetadata GetOrCreateMetadata(string videoPath) {
             lock (_metafileLock) {
                 string thumbsDir = Path.Combine(Path.GetDirectoryName(videoPath), ".thumbs/");
@@ -582,9 +588,10 @@ namespace RePlays.Utils {
                     // a metadata created while its video was still recording has no
                     // duration yet, and one created before fps was tracked has no fps -
                     // fill them in once the file is finished
-                    if ((metadata.duration == 0 || metadata.fps == 0) && !IsBeingRecorded(videoPath)) {
+                    if ((metadata.duration == 0 || metadata.fps == 0) && !_probedUnreadable.Contains(videoPath) && !IsBeingRecorded(videoPath)) {
                         var probedDuration = metadata.duration > 0 ? metadata.duration : GetVideoDuration(videoPath);
                         var probedFps = probedDuration > 0 ? GetVideoFps(videoPath) : 0;
+                        if (probedDuration == 0 || probedFps == 0) _probedUnreadable.Add(videoPath);
                         if (probedDuration != metadata.duration || probedFps != metadata.fps) {
                             metadata.duration = probedDuration;
                             metadata.fps = probedFps;
@@ -667,24 +674,16 @@ namespace RePlays.Utils {
             }
 
             if (clipSegments.Length > 1 && index == clipSegments.Length) {
-                startInfo.Arguments =
-                "-v warning -hide_banner -stats " +
-                "-f concat -safe 0 " +
-                $"-i \"{Path.Join(GetTempFolder(), "list.txt").Replace("\\", "/")}\" " +
-                $"{codecArgs} " +
-                $"\"{outputFile}\"";
-                Logger.WriteLine(startInfo.Arguments);
+                foreach (var arg in new[] { "-v", "warning", "-hide_banner", "-stats", "-f", "concat", "-safe", "0", "-i", Path.Join(GetTempFolder(), "list.txt").Replace("\\", "/") }) startInfo.ArgumentList.Add(arg);
+                foreach (var arg in codecArgs.Split(' ', StringSplitOptions.RemoveEmptyEntries)) startInfo.ArgumentList.Add(arg);
+                startInfo.ArgumentList.Add(outputFile);
+                Logger.WriteLine(string.Join(' ', startInfo.ArgumentList));
             }
             else {
-                startInfo.Arguments =
-                "-v warning -hide_banner -stats " +
-                "-ss " + clipSegments[index].start.ToString(CultureInfo.InvariantCulture) + " " +
-                "-i \"" + inputFile + "\" " +
-                "-t " + clipSegments[index].duration.ToString(CultureInfo.InvariantCulture) + " " +
-                $"{codecArgs} " +
-                "-avoid_negative_ts make_zero -fflags +genpts -y " +
-                $"\"{outputFile}\"";
-                Logger.WriteLine(startInfo.Arguments);
+                foreach (var arg in new[] { "-v", "warning", "-hide_banner", "-stats", "-ss", clipSegments[index].start.ToString(CultureInfo.InvariantCulture), "-i", inputFile, "-t", clipSegments[index].duration.ToString(CultureInfo.InvariantCulture) }) startInfo.ArgumentList.Add(arg);
+                foreach (var arg in codecArgs.Split(' ', StringSplitOptions.RemoveEmptyEntries)) startInfo.ArgumentList.Add(arg);
+                foreach (var arg in new[] { "-avoid_negative_ts", "make_zero", "-fflags", "+genpts", "-y", outputFile }) startInfo.ArgumentList.Add(arg);
+                Logger.WriteLine(string.Join(' ', startInfo.ArgumentList));
             }
 
             var process = new Process {
@@ -723,8 +722,8 @@ namespace RePlays.Utils {
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
                 FileName = Path.Join(GetFFmpegFolder(), "ffprobe"),
-                Arguments = $"-v error -i \"{outputFile}\""
             };
+            foreach (var arg in new[] { "-v", "error", "-i", outputFile }) verifyClip.ArgumentList.Add(arg);
 
             using var verifyClipProcess = Process.Start(verifyClip);
             string output = verifyClipProcess.StandardOutput.ReadToEnd();
@@ -968,6 +967,7 @@ namespace RePlays.Utils {
         private static Timer checkForNvidiaUpdateTimer;
 
         public static async void DownloadNvidiaAudioSDK() {
+#if WINDOWS
             var query = new ObjectQuery("SELECT * FROM Win32_VideoController");
             var searcher = new ManagementObjectSearcher(query);
 
@@ -1037,6 +1037,9 @@ namespace RePlays.Utils {
             checkForNvidiaUpdateTimer.Elapsed += TimerElapsed;
             checkForNvidiaUpdateTimer.AutoReset = true;
             checkForNvidiaUpdateTimer.Start();
+#else
+            WebMessage.DisplayModal("NVIDIA Noise Removal is only supported on Windows.", "Warning", "warning");
+#endif
         }
 
         private static void TimerElapsed(object sender, ElapsedEventArgs e) {

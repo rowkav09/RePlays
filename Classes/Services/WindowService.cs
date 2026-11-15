@@ -667,13 +667,16 @@ namespace RePlays.Services {
 
                                     if (string.IsNullOrEmpty(windowName)) continue;
 
-                                    string windowClass = GetClassName(window);
+                                    // class and pid don't change for a window we already know, so only
+                                    // ask the X server for them the first time we see it
+                                    bool hasPrev = prevWindows.TryGetValue(window, out X11Window prev);
+                                    bool reuse = hasPrev && prev.pid > 0 && !string.IsNullOrEmpty(prev.classname);
+                                    string windowClass = reuse ? prev.classname : GetClassName(window);
                                     var windowSize = GetWindowSize(window);
-                                    int windowPid = GetWindowPid(window);
+                                    int windowPid = reuse ? prev.pid : GetWindowPid(window);
 
                                     if (windowPid <= 0) continue;
 
-                                    bool hasPrev = prevWindows.TryGetValue(window, out X11Window prev);
                                     bool hasCurr = x11Windows.TryGetValue(window, out X11Window curr);
 
                                     if (!hasPrev && !hasCurr) {

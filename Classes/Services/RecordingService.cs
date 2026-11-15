@@ -1,6 +1,7 @@
 ﻿using RePlays.Recorders;
 using RePlays.Utils;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using System.Timers;
@@ -24,6 +25,38 @@ namespace RePlays.Services {
         public static bool GameInFocus { get; set; }
 
         public static bool RestartPending { get; set; } = false;
+
+        // Process the user explicitly stopped recording for. Automatic detection must not
+        // start recording it again just because the game regains focus (#280).
+        private static int userStoppedPid = 0;
+        private static DateTime userStoppedStartTime = DateTime.MinValue;
+
+        private static void RememberUserStop(int pid) {
+            // a second, overlapping stop sees the session pid already cleared; never let it
+            // replace the identity of the process the first stop recorded
+            if (pid == 0) return;
+            userStoppedPid = pid;
+            userStoppedStartTime = DateTime.MinValue;
+            try {
+                using var process = Process.GetProcessById(pid);
+                userStoppedStartTime = process.StartTime;
+            }
+            catch (Exception) { userStoppedPid = 0; }
+        }
+
+        private static bool IsUserStoppedProcess(int pid) {
+            if (pid == 0 || pid != userStoppedPid) return false;
+            try {
+                using var process = Process.GetProcessById(pid);
+                if (process.HasExited || process.StartTime != userStoppedStartTime) throw new InvalidOperationException();
+                return true;
+            }
+            catch (Exception) {
+                // the stopped process is gone (or its pid was reused), stop suppressing
+                userStoppedPid = 0;
+                return false;
+            }
+        }
 
         const int retryInterval = 2000; // 2 second
         const int maxRetryAttempts = 20; // 30 retries
@@ -128,6 +161,12 @@ namespace RePlays.Services {
                 return;
             }
 
+            if (manual) userStoppedPid = 0;
+            else if (IsUserStoppedProcess(currentSession.Pid)) {
+                Logger.WriteLine($"Not auto-starting recording, user stopped it for this process [{currentSession.Pid}][{currentSession.GameTitle}]");
+                return;
+            }
+
             IsPreRecording = true;
             bool result = true;
 
@@ -177,6 +216,9 @@ namespace RePlays.Services {
                 return;
             }
             IsStopping = true;
+
+            // remember the stop before awaiting: a second stop can arrive while this one is pending
+            if (user) RememberUserStop(currentSession.Pid);
 
             bool error = await ActiveRecorder.StopRecording();
 

@@ -26,15 +26,20 @@ namespace RePlays.Integrations {
         }
 
         private string GetInstallationPath() {
-            const string searchPath = "\\bin\\win64\\cs2.exe";
-            const string replacePath = "\\csgo\\cfg\\gamestate_integration_replays.cfg";
-
             var currentSession = RecordingService.GetCurrentSession();
             if (currentSession == null || string.IsNullOrEmpty(currentSession.Exe)) {
-                throw new Exception("Could not get CS2 path, Session path: " + currentSession.Exe);
+                throw new Exception("Could not get CS2 path, there is no session with an executable path");
             }
 
-            return currentSession.Exe.Replace(searchPath, replacePath);
+            // the game exe is under game/bin/win64/cs2.exe on Windows and game/bin/linuxsteamrt64/cs2
+            // on Linux; the gamestate config goes into game/csgo/cfg either way
+            const string configPath = "/csgo/cfg/gamestate_integration_replays.cfg";
+            var exe = currentSession.Exe.Replace('\\', '/');
+            foreach (var gameExe in new[] { "/bin/win64/cs2.exe", "/bin/linuxsteamrt64/cs2" }) {
+                if (exe.EndsWith(gameExe, StringComparison.OrdinalIgnoreCase))
+                    return exe[..^gameExe.Length] + configPath;
+            }
+            throw new Exception("Could not work out the CS2 config folder from " + currentSession.Exe);
         }
 
         private async Task HandleRequest(HttpListenerContext context) {

@@ -1,0 +1,18 @@
+using System;
+using RePlays.Services;
+class P {
+    static int Main() {
+        // a wine process that exits between the window event and our /proc read
+        try {
+            bool r = DetectionService.AutoDetectGame(2147000, "/usr/lib/wine/wine64-preloader", 0, false);
+            Console.WriteLine($"returned {r}");
+            if (r) { Console.WriteLine("FAIL: treated a vanished process as a game"); return 134; }
+            Console.WriteLine("PASS");
+            return 0;
+        }
+        catch (Exception e) {
+            Console.WriteLine($"FAIL: threw {e.GetType().Name}: {e.Message}");
+            return 134;
+        }
+    }
+}

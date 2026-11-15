@@ -1,0 +1,14 @@
+using System;
+using System.IO;
+using RePlays.Utils;
+if (!OperatingSystem.IsLinux()) throw new Exception("Linux fixture only");
+var root=Path.Combine(Path.GetTempPath(),"replays-metadata-case-"+Guid.NewGuid());Directory.CreateDirectory(Path.Combine(root,".thumbs"));
+try {
+ foreach(var name in new[]{"Upper-ses","upper-ses"}) {
+  var video=Path.Combine(root,name+".mp4");File.WriteAllText(video,"fixture");
+  File.WriteAllText(Path.Combine(root,".thumbs",name+".metadata"),"{\"duration\":0,\"fps\":0}");
+  var meta=Functions.GetOrCreateMetadata(video);
+  if(name=="upper-ses" && (meta.duration!=42 || meta.fps!=60)) throw new Exception("Distinct Linux file was skipped by unreadable cache");
+  Console.WriteLine($"{name}: duration={meta.duration} fps={meta.fps}");
+ }
+}finally {Directory.Delete(root,true);}

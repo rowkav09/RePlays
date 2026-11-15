@@ -6,6 +6,10 @@ namespace RePlays.Services {
     internal static class BookmarkService {
         static List<Bookmark> bookmarks = new();
         static int latestBookmarkKeyPress;
+        // bookmarks come in from the hotkey and from game integration threads while a recording
+        // is being saved; the list is only touched under this lock, saves run one at a time
+        static readonly object bookmarkLock = new();
+        static readonly object saveLock = new();
 
         public static void AddBookmark(Bookmark bookmark, DateTime? dateTime = null) {
             if (dateTime == null) {
@@ -18,7 +22,7 @@ namespace RePlays.Services {
                 double bookmarkTimestamp = RecordingService.GetTotalRecordingTimeInSecondsWithDecimals(dateTime);
                 Logger.WriteLine("Adding bookmark: " + bookmarkTimestamp);
                 bookmark.time = bookmarkTimestamp;
-                bookmarks.Add(bookmark);
+                lock (bookmarkLock) bookmarks.Add(bookmark);
 
                 if (bookmark.type.Equals(Bookmark.BookmarkType.Manual)) {
                     Functions.PlaySound(Functions.GetResourcesFolder() + "bookmark.wav");
@@ -29,17 +33,25 @@ namespace RePlays.Services {
         }
 
         public static void SaveBookmarks(string videoPath) {
-            if (bookmarks.Count == 0) return;
-            Logger.WriteLine($"Saving {bookmarks.Count} bookmarks to metadata file");
+            lock (saveLock) {
+                List<Bookmark> pending;
+                lock (bookmarkLock) {
+                    if (bookmarks.Count == 0) return;
+                    pending = new List<Bookmark>(bookmarks);
+                }
+                Logger.WriteLine($"Saving {pending.Count} bookmarks to metadata file");
 
-            try {
-                Functions.UpdateMetadata(videoPath, metadata => {
-                    metadata.bookmarks.AddRange(bookmarks);
-                });
-                bookmarks.Clear();
-            }
-            catch (Exception e) {
-                Logger.WriteLine($"Bookmark status: Failed with exception {e.Message}");
+                try {
+                    Functions.UpdateMetadata(videoPath, metadata => {
+                        metadata.bookmarks.AddRange(pending);
+                    });
+                    // bookmarks only ever get appended, so the saved ones are the first of the list;
+                    // anything added while the file was being written stays for the next save
+                    lock (bookmarkLock) bookmarks.RemoveRange(0, pending.Count);
+                }
+                catch (Exception e) {
+                    Logger.WriteLine($"Bookmark status: Failed with exception {e.Message}");
+                }
             }
         }
     }

@@ -1,0 +1,46 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Net.WebSockets;
+using System.Reflection;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using RePlays.Classes.Utils;
+// Fake socket that feeds queued text frames, then a close frame.
+class Fake : WebSocket {
+    readonly Queue<string> frames;
+    WebSocketState state = WebSocketState.Open;
+    public int Received;
+    public Fake(params string[] f) { frames = new Queue<string>(f); }
+    public override WebSocketCloseStatus? CloseStatus => state == WebSocketState.Closed ? WebSocketCloseStatus.NormalClosure : null;
+    public override string CloseStatusDescription => null;
+    public override WebSocketState State => state;
+    public override string SubProtocol => null;
+    public override void Abort() { state = WebSocketState.Aborted; }
+    public override Task CloseAsync(WebSocketCloseStatus s, string d, CancellationToken c) { state = WebSocketState.Closed; return Task.CompletedTask; }
+    public override Task CloseOutputAsync(WebSocketCloseStatus s, string d, CancellationToken c) { state = WebSocketState.Closed; return Task.CompletedTask; }
+    public override void Dispose() { }
+    public override Task SendAsync(ArraySegment<byte> b, WebSocketMessageType t, bool e, CancellationToken c) => Task.CompletedTask;
+    public override Task<WebSocketReceiveResult> ReceiveAsync(ArraySegment<byte> buffer, CancellationToken c) {
+        if (frames.Count == 0) return Task.FromResult(new WebSocketReceiveResult(0, WebSocketMessageType.Close, true, WebSocketCloseStatus.NormalClosure, ""));
+        var bytes = Encoding.UTF8.GetBytes(frames.Dequeue());
+        Array.Copy(bytes, buffer.Array, bytes.Length);
+        Received++;
+        return Task.FromResult(new WebSocketReceiveResult(bytes.Length, WebSocketMessageType.Text, true));
+    }
+}
+class P {
+    static int Main() {
+        var handle = typeof(WebServer).GetMethod("HandleWebSocket", BindingFlags.NonPublic | BindingFlags.Static);
+        // not JSON; JSON with no handler data that needs fields; then a harmless valid message
+        var sock = new Fake("this is not json", "{\"message\":\"ShowInFolder\",\"data\":\"{}\"}", "{\"message\":\"Nothing\",\"data\":\"{}\"}");
+        string error = null;
+        try { ((Task)handle.Invoke(null, new object[] { null, sock })).GetAwaiter().GetResult(); }
+        catch (Exception e) { error = (e.InnerException ?? e).GetType().Name; }
+        bool ok = error == null && sock.Received == 3;
+        Console.WriteLine($"frames consumed={sock.Received}/3, escaped exception={error ?? "none"} -> {(ok ? "ok" : "WRONG")}");
+        Console.WriteLine(ok ? "PASS" : "FAILED");
+        return ok ? 0 : 134;
+    }
+}

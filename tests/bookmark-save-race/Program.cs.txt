@@ -1,0 +1,39 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using RePlays.Services;
+using RePlays.Utils;
+class P {
+    static int Main() {
+        string dir = Path.Combine(Path.GetTempPath(), "bm-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(dir, ".thumbs"));
+        string video = Path.Combine(dir, "clip.mp4");
+        File.WriteAllBytes(video, new byte[10]);
+        // metadata with duration and fps already known, so no probing is involved
+        File.WriteAllText(Path.Combine(dir, ".thumbs", "clip.metadata"), "{\"duration\":10,\"fps\":30,\"bookmarks\":[]}");
+        var svc = typeof(Bookmark).Assembly.GetType("RePlays.Services.BookmarkService");
+        var add = svc.GetMethod("AddBookmark"); var save = svc.GetMethod("SaveBookmarks");
+        var list = (System.Collections.IList)svc.GetField("bookmarks", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+        const int N = 40000;
+        int adderFailures = 0;
+        var adder = Task.Run(() => {
+            for (int i = 0; i < N; i++) {
+                try { add.Invoke(null, new object[] { new Bookmark { type = Bookmark.BookmarkType.Death }, null }); }
+                catch { Interlocked.Increment(ref adderFailures); }
+            }
+        });
+        while (!adder.IsCompleted) save.Invoke(null, new object[] { video });
+        save.Invoke(null, new object[] { video });
+        int saved = Functions.GetMetadata(video).bookmarks.Count;
+        int left = list.Count;
+        int accounted = saved + left;
+        bool ok = accounted == N - adderFailures && adderFailures == 0;
+        Console.WriteLine($"added={N} saved={saved} still pending={left} add failures={adderFailures} -> {(ok ? "ok" : "WRONG")}");
+        Console.WriteLine(ok ? "PASS" : "FAILED");
+        return ok ? 0 : 134;
+    }
+}

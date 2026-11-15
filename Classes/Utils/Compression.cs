@@ -8,15 +8,23 @@ using static RePlays.Utils.Functions;
 namespace RePlays.Utils {
     public static class Compression {
         static Dictionary<int, double> fileTime = new Dictionary<int, double>();
+
+        // Same name with "-compressed" before the extension, for any extension. The old code only
+        // handled .mp4 and .mkv (and the exit handler only .mp4), so other formats got the original
+        // path back and the original was deleted.
+        public static string GetCompressedPath(string filePath) {
+            return Path.Join(Path.GetDirectoryName(filePath), Path.GetFileNameWithoutExtension(filePath) + "-compressed" + Path.GetExtension(filePath));
+        }
         public static void CompressFile(string filePath, CompressClip data) {
             ProcessStartInfo startInfo = new ProcessStartInfo {
                 FileName = Path.Join(GetFFmpegFolder(), "ffmpeg"),
-                Arguments = string.Format("-i \"{0}\" -vcodec libx264 -preset \"{1}\" \"{2}\"", filePath, data.quality, filePath.Replace(".mkv", "-compressed.mkv").Replace(".mp4", "-compressed.mp4")),
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true,
             };
+
+            foreach (var arg in new[] { "-i", filePath, "-vcodec", "libx264", "-preset", data.quality ?? "medium", GetCompressedPath(filePath) }) startInfo.ArgumentList.Add(arg);
 
             Process process = new Process {
                 StartInfo = startInfo,
@@ -56,9 +64,20 @@ namespace RePlays.Utils {
 
         static async Task p_ExitedAsync(object sender, EventArgs e, string filePathOriginal, Process process) {
             WebMessage.DestroyToast(process.Id.ToString());
-            process.Kill();
+            int encoderExitCode;
+            try { encoderExitCode = process.ExitCode; }
+            catch (InvalidOperationException) { encoderExitCode = -1; }
+            try { process.Kill(); } catch (InvalidOperationException) { }
 
-            string filePathCompressed = filePathOriginal.Replace(".mp4", "-compressed.mp4");
+            string filePathCompressed = GetCompressedPath(filePathOriginal);
+
+            if (encoderExitCode != 0 || !File.Exists(filePathCompressed)) {
+                // ffmpeg failed (possibly after writing partial output), keep the original untouched
+                Logger.WriteLine($"Compression failed, ffmpeg exit code {encoderExitCode}, output exists: {File.Exists(filePathCompressed)}");
+                if (File.Exists(filePathCompressed)) File.Delete(filePathCompressed);
+                WebMessage.DisplayModal("Failed to compress the file", "Error", "warning");
+                return;
+            }
 
             long originalFileSize = new FileInfo(filePathOriginal).Length;
             long compressedFileSize = new FileInfo(filePathCompressed).Length;
@@ -69,24 +88,29 @@ namespace RePlays.Utils {
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
                 FileName = Path.Join(GetFFmpegFolder(), "ffprobe"),
-                Arguments = $"-v error -i \"{compressedFileSize}\""
             };
+            // this used to pass the size in bytes as the file name, so the check always failed
+            foreach (var arg in new[] { "-v", "error", "-i", filePathCompressed }) startInfo.ArgumentList.Add(arg);
 
             using var verifyProcess = Process.Start(startInfo);
+            // ffprobe -v error reports problems on stderr; read it at the same time as stdout so neither pipe fills up
+            var stderrTask = verifyProcess.StandardError.ReadToEndAsync();
             string output = verifyProcess.StandardOutput.ReadToEnd();
-            Logger.WriteLine("Output: " + output);
             verifyProcess.WaitForExit();
+            string errorOutput = await stderrTask;
+            Logger.WriteLine("Output: " + output + errorOutput);
+            bool probeFailed = verifyProcess.ExitCode != 0 || !string.IsNullOrWhiteSpace(output) || !string.IsNullOrWhiteSpace(errorOutput);
 
-            if (compressedFileSize > originalFileSize || compressedFileSize == 0 || !string.IsNullOrWhiteSpace(output)) {
-                if (compressedFileSize == 0 || !string.IsNullOrWhiteSpace(output)) WebMessage.DisplayModal("Failed to compress the file", "Error", "warning");
+            if (compressedFileSize > originalFileSize || compressedFileSize == 0 || probeFailed) {
+                if (compressedFileSize == 0 || probeFailed) WebMessage.DisplayModal("Failed to compress the file", "Error", "warning");
                 if (compressedFileSize > originalFileSize) WebMessage.DisplayModal("The compressed file turned out to be larger than the original file. We will keep the original file.", "Compression size", "warning");
                 File.Delete(filePathCompressed);
                 return;
             }
 
             try {
-                File.Delete(filePathOriginal);
-                File.Move(filePathCompressed, filePathOriginal);
+                // replace in one step so a failed move can't leave us without the original
+                File.Move(filePathCompressed, filePathOriginal, true);
             }
             catch (Exception ex) {
                 Logger.WriteLine($"Error: {ex.Message}");

@@ -315,7 +315,8 @@ namespace RePlays.Utils {
 #if WINDOWS
                         Process.Start("explorer.exe", string.Format("/select,\"{0}\"", filePath.Replace('/', '\\')));
 #else
-                        Process.Start("dolphin", $"--select \"{filePath}\"");
+                        // dolphin only exists on KDE; xdg-open opens the folder in whatever file manager is set
+                        Process.Start("xdg-open", Path.GetDirectoryName(filePath));
 #endif
                     }
                     break;
