@@ -21,7 +21,11 @@ Note: Depending on your Windows version, you may need to manually download and i
 
 ### Linux
 
-- Linux support is currently a work-in-progress, but is avaliable for normal use if you can build it yourself. See [here](https://github.com/lulzsun/RePlays/issues/162) for more information.
+1. Download the `RePlays-linux-x64` artifact from a [successful Linux Build run](https://github.com/rowkav09/RePlays/actions/workflows/linux-build.yml?query=branch%3Alinux-build+is%3Asuccess).
+2. Unzip the artifact, then extract `RePlays-linux-x64.tar.gz`.
+3. Install the runtime libraries listed in `README-linux.txt` and run `./RePlays` from the extracted folder.
+
+The archive includes the interface and clip tools. Recording still needs a compatible Linux `libobs.so`, which is not bundled. See the [Linux roadmap](https://github.com/lulzsun/RePlays/issues/162) for the status of Linux support.
 
 ## Development
 

@@ -68,12 +68,17 @@ namespace RePlays.Utils {
         public static string GetRePlaysURI() {
 #if DEBUG 
             if (GetProgramArgs().Any("--use-build-ui".Contains)) {
-                return "file://" + GetSolutionPath() + $"/ClientApp/build/index.html?port={WebServer.Port}";
+                return GetBuiltUIUri(GetSolutionPath());
             }
             return $"http://localhost:3000/?port={WebServer.Port}#/";
 #else
-            return "file://" + GetStartupPath() + $"/ClientApp/build/index.html?port={WebServer.Port}";
+            return GetBuiltUIUri(GetStartupPath());
 #endif
+        }
+
+        static string GetBuiltUIUri(string root) {
+            var index = new Uri(Path.Combine(root, "ClientApp", "build", "index.html"));
+            return $"{index.AbsoluteUri}?port={WebServer.Port}";
         }
 
         public static string GetPlaysLtcFolder() {
